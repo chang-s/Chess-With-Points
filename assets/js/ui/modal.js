@@ -24,10 +24,7 @@ function openDialog({ variant, title, content, initialFocusSelector, onClose }) 
   const previouslyFocused = document.activeElement;
 
   const backdrop = document.createElement("div");
-  backdrop.className =
-    "fixed inset-0 z-40 bg-black/55 backdrop-blur-sm";
-
-  // Click-outside close target for overlay too (backdrop is the outside)
+  backdrop.className = "fixed inset-0 z-40 bg-black/55 backdrop-blur-sm";
   backdrop.setAttribute("aria-hidden", "true");
 
   const shell = document.createElement("div");
@@ -43,16 +40,14 @@ function openDialog({ variant, title, content, initialFocusSelector, onClose }) 
 
   if (variant === "overlay") {
     dialog.className =
-      "relative m-0 h-full w-full border border-white/10 bg-slate-950/75 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
+      "relative m-0 h-full w-full border-2 border-white/10 bg-slate-950/75 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
   } else {
     dialog.className =
-      "relative w-full max-w-lg rounded-2xl border border-white/12 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
+      "relative w-full max-w-lg rounded-2xl border-2 border-white/12 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
   }
 
   const header = document.createElement("div");
-  header.className = variant === "overlay"
-    ? "flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4"
-    : "flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5";
+  header.className = "flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4";
 
   const titleEl = document.createElement("h2");
   titleEl.className = "text-base font-semibold tracking-tight text-slate-100";
@@ -61,7 +56,7 @@ function openDialog({ variant, title, content, initialFocusSelector, onClose }) 
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.className =
-    "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-200 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60";
+    "inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 border-white/10 bg-white/[0.03] text-slate-200 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60";
   closeBtn.setAttribute("aria-label", "Close dialog");
   closeBtn.innerHTML = `
     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -73,21 +68,10 @@ function openDialog({ variant, title, content, initialFocusSelector, onClose }) 
   body.className = variant === "overlay"
     ? "h-[calc(100%-57px)] px-0 py-0"
     : "px-6 py-5";
-
   body.appendChild(content);
 
-  header.appendChild(titleEl);
-  header.appendChild(closeBtn);
-
-  dialog.appendChild(header);
-  dialog.appendChild(body);
-
-  // subtle glow border
-  const glow = document.createElement("div");
-  glow.className =
-    "pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-b from-indigo-400/12 via-transparent to-cyan-300/10 opacity-80";
-  if (variant === "overlay") glow.classList.add("hidden"); // overlay already covers screen; keep it cleaner
-  dialog.appendChild(glow);
+  header.append(titleEl, closeBtn);
+  dialog.append(header, body);
 
   root.appendChild(backdrop);
   shell.appendChild(dialog);
@@ -128,12 +112,10 @@ function openDialog({ variant, title, content, initialFocusSelector, onClose }) 
     });
   }
 
-  // Close on clicking outside dialog
   backdrop.addEventListener("mousedown", () => close("backdrop"));
   closeBtn.addEventListener("click", () => close("button"));
   window.addEventListener("keydown", onEsc, true);
 
-  // Animate in
   backdrop.animate([{ opacity: 0 }, { opacity: 1 }], {
     duration: 160,
     easing: "cubic-bezier(.2,.9,.2,1)",

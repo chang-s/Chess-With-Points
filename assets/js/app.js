@@ -13,9 +13,7 @@ btnJoin?.addEventListener("click", () => openJoinModal());
 ------------------------------ */
 function openJoinModal() {
   const content = document.createElement("div");
-
-  const hint = el("p", "text-sm text-slate-300", "Enter a game code to join an existing lobby.");
-  content.appendChild(hint);
+  content.appendChild(el("p", "text-sm text-slate-300", "Enter a game code to join an existing lobby."));
 
   const form = el("form", "mt-5 space-y-4");
   form.setAttribute("novalidate", "");
@@ -31,19 +29,24 @@ function openJoinModal() {
   input.spellcheck = false;
   input.placeholder = "e.g. Q7K9";
   input.className =
-    "w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] outline-none transition placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-cyan-200/60";
+    "w-full rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-sky-200/60";
 
   const error = el("p", "hidden text-sm text-rose-200");
   error.id = "joinError";
   error.setAttribute("role", "alert");
 
   const actions = el("div", "mt-6 flex items-center justify-end gap-3");
-  const cancelBtn = button("Cancel", "button",
-    "rounded-xl border border-white/12 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:bg-white/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60"
+
+  const cancelBtn = button(
+    "Cancel",
+    "button",
+    "rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:bg-white/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60"
   );
 
-  const joinBtn = button("Join", "submit",
-    "rounded-xl border border-white/12 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70"
+  const joinBtn = button(
+    "Join",
+    "submit",
+    "rounded-xl border-2 border-white/12 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/70"
   );
 
   actions.append(cancelBtn, joinBtn);
@@ -57,31 +60,28 @@ function openJoinModal() {
   });
 
   cancelBtn.addEventListener("click", () => modal.close("cancel"));
-
   input.addEventListener("input", () => clearError(input, error));
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const code = (input.value ?? "").trim();
-
     if (code.length < 4) {
       setError(input, error, "Game code must be at least 4 characters.");
       showToast("Please enter a valid game code.", { variant: "error" });
       input.focus();
       return;
     }
-
     modal.close("join");
     showToast(`Joining lobby: ${code}`, { variant: "success" });
   });
 }
 
 /* -----------------------------
-   Create overlay (new flow)
+   Create overlay (updated)
 ------------------------------ */
 
 const POINT_TOTAL_OPTIONS = [40, 80, 120, 160, 400];
-const STORAGE_KEY = "cwp_point_schemas_v1";
+const STORAGE_KEY = "cwp_point_schemas_v2";
 
 function openCreateOverlay() {
   const state = createState(loadSchemas(), {
@@ -89,35 +89,33 @@ function openCreateOverlay() {
     selectedPieceId: PIECES[0].id,
   });
 
-  // If we have schemas, select first by default.
   if (state.schemas.length > 0) state.selectedSchemaId = state.schemas[0].id;
 
   const content = document.createElement("div");
   content.className = "h-full";
 
-  // Layout shell
+  // Mobile-first responsive: stack columns on small screens
   const grid = el(
     "div",
-    "h-full grid grid-cols-12 gap-0"
+    "h-full grid grid-cols-1 lg:grid-cols-12"
   );
 
   const left = el(
     "aside",
-    "col-span-3 border-r border-white/10 bg-white/[0.02]"
+    "lg:col-span-3 border-b lg:border-b-0 lg:border-r border-white/10 bg-white/[0.02]"
   );
   const center = el(
     "section",
-    "col-span-6 border-r border-white/10"
+    "lg:col-span-6 border-b lg:border-b-0 lg:border-r border-white/10"
   );
   const right = el(
     "aside",
-    "col-span-3"
+    "lg:col-span-3"
   );
 
   grid.append(left, center, right);
   content.appendChild(grid);
 
-  // Build columns
   const leftUI = buildLeftColumn(state);
   const centerUI = buildCenterColumn(state);
   const rightUI = buildRightColumn(state);
@@ -126,72 +124,61 @@ function openCreateOverlay() {
   center.appendChild(centerUI.root);
   right.appendChild(rightUI.root);
 
-  // Overlay instance
   const overlay = openOverlay({
     title: "Create game",
     content,
     initialFocusSelector: "#schemaCreateBtn",
-    onClose: () => {
-      saveSchemas(state.schemas);
-    },
+    onClose: () => saveSchemas(state.schemas),
   });
 
-  // Reactive re-render hooks (small + clean)
   state.onChange(() => {
-    // Persist light changes (safe & simple)
     saveSchemas(state.schemas);
-
     leftUI.render();
     centerUI.render();
     rightUI.render();
   });
 
-  // Wire close button support (header close already exists)
-  // but we also want create army toast only
   state.actions.setOverlayClose((reason) => overlay.close(reason));
 }
 
 /* -----------------------------
-   Column builders
+   Left column
 ------------------------------ */
 
 function buildLeftColumn(state) {
   const root = el("div", "h-full flex flex-col");
 
-  // Top controls
-  const top = el("div", "p-6");
+  const top = el("div", "p-4 sm:p-6");
   const title = el("div", "text-xs font-medium uppercase tracking-wide text-slate-400", "Point sets");
-  const row = el("div", "mt-3 flex items-center gap-3");
 
+  const pointsRow = el("div", "mt-3 flex items-center gap-3");
   const pointsLabel = el("label", "sr-only", "Total points");
   pointsLabel.setAttribute("for", "pointsTotalSelect");
 
   const pointsSelect = document.createElement("select");
   pointsSelect.id = "pointsTotalSelect";
   pointsSelect.className =
-    "w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] outline-none transition focus-visible:ring-2 focus-visible:ring-indigo-300/70";
+    "w-full rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-200/70";
   pointsSelect.innerHTML = POINT_TOTAL_OPTIONS.map(
     (n) => `<option value="${n}">${n} points</option>`
   ).join("");
 
-  row.append(pointsLabel, pointsSelect);
+  pointsRow.append(pointsLabel, pointsSelect);
 
   const createBtn = button(
     "Create new",
     "button",
-    "mt-4 w-full rounded-xl border border-emerald-300/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-slate-100 transition hover:bg-emerald-500/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/60"
+    "mt-4 w-full rounded-xl border-2 border-sky-300/25 bg-sky-500/12 px-4 py-3 text-sm font-medium text-slate-100 transition hover:bg-sky-500/16 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/70"
   );
   createBtn.id = "schemaCreateBtn";
 
-  top.append(title, row, createBtn);
+  top.append(title, pointsRow, createBtn);
 
-  // List
-  const listWrap = el("div", "flex-1 overflow-auto px-4 pb-6");
+  const listWrap = el("div", "flex-1 overflow-auto px-3 sm:px-4 pb-4 sm:pb-6");
   const list = el("div", "space-y-2");
   listWrap.appendChild(list);
 
-  // Footer quick stats
-  const footer = el("div", "border-t border-white/10 px-6 py-4");
+  const footer = el("div", "border-t border-white/10 px-4 sm:px-6 py-4");
   const stat = el("div", "text-sm text-slate-200");
   footer.appendChild(stat);
 
@@ -199,44 +186,158 @@ function buildLeftColumn(state) {
 
   function render() {
     const schema = state.getSelectedSchema();
-    const total = schema?.totalPoints ?? 40;
 
-    pointsSelect.value = String(total);
     pointsSelect.disabled = !schema;
+    if (schema) pointsSelect.value = String(schema.totalPoints);
 
     list.innerHTML = "";
+
     if (state.schemas.length === 0) {
-      const empty = el(
-        "div",
-        "mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-slate-300",
-        "No point sets yet."
+      list.appendChild(
+        el(
+          "div",
+          "mt-4 rounded-xl border-2 border-white/10 bg-white/[0.02] p-4 text-sm text-slate-300",
+          "No point sets yet."
+        )
       );
-      list.appendChild(empty);
     } else {
       for (const s of state.schemas) {
         const active = s.id === state.selectedSchemaId;
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className =
-          "w-full rounded-xl border px-4 py-3 text-left text-sm transition focus:outline-none focus-visible:ring-2 " +
-          (active
-            ? "border-emerald-300/35 bg-emerald-500/10 text-slate-100 focus-visible:ring-emerald-200/60"
-            : "border-white/10 bg-white/[0.02] text-slate-200 hover:bg-white/[0.04] focus-visible:ring-cyan-200/60");
+        const remaining = calcRemaining(s);
+        const over = remaining < 0;
 
-        item.innerHTML = `
-          <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <div class="truncate font-medium">${escapeHtml(s.name)}</div>
-              <div class="mt-0.5 text-xs text-slate-400">${s.totalPoints} points</div>
-            </div>
-            <span class="inline-flex items-center rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-200">
-              ${calcRemaining(s)} left
-            </span>
-          </div>
-        `;
+        const row = el(
+          "div",
+          "group w-full rounded-xl border-2 px-3 py-2.5 transition " +
+            (active
+              ? "border-sky-200/35 bg-sky-500/10"
+              : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]")
+        );
 
-        item.addEventListener("click", () => state.actions.selectSchema(s.id));
-        list.appendChild(item);
+        const topRow = el("div", "flex items-center justify-between gap-2");
+        const leftSide = el("div", "min-w-0 flex items-center gap-2");
+
+        // Name display + edit input
+        const nameWrap = el("div", "min-w-0");
+        const nameText = el("div", "truncate text-sm font-medium text-slate-100");
+        nameText.textContent = s.name;
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.value = s.name;
+        nameInput.className =
+          "hidden w-full max-w-[220px] rounded-lg border-2 border-white/12 bg-white/[0.03] px-2.5 py-1.5 text-sm text-slate-100 outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60";
+
+        nameWrap.append(nameText, nameInput);
+
+        // Remaining badge + warning
+        const badge = el(
+          "div",
+          "inline-flex items-center gap-2 rounded-lg border-2 border-white/10 bg-white/[0.03] px-2 py-1 text-xs"
+        );
+        const dot = el(
+          "span",
+          "inline-flex h-2 w-2 rounded-full " +
+            (remaining === 0
+              ? "bg-sky-200/80 shadow-[0_0_14px_rgba(125,211,252,0.6)]"
+              : over
+              ? "bg-rose-300/80 shadow-[0_0_14px_rgba(253,164,175,0.55)]"
+              : "bg-white/30")
+        );
+
+        const warn = over
+          ? `<span class="cwp-tooltip" data-tip="Over budget" aria-label="Over budget">⚠️</span>`
+          : "";
+
+        badge.innerHTML = `${warn}<span class="inline-flex items-center gap-2">${dot.outerHTML}<span>${remaining} left</span></span>`;
+
+        // Actions: rename, duplicate, delete
+        const actions = el("div", "flex items-center gap-1");
+
+        const renameBtn = iconButton("Rename", pencilIcon(), "focus-visible:ring-sky-200/70");
+        const dupBtn = iconButton("Duplicate", duplicateIcon(), "focus-visible:ring-sky-200/70");
+        const delBtn = iconButton("Delete", trashIcon(), "focus-visible:ring-rose-200/60");
+
+        // Editing state local to row
+        let editing = false;
+
+        function setEditing(next) {
+          editing = next;
+          nameText.classList.toggle("hidden", editing);
+          nameInput.classList.toggle("hidden", !editing);
+
+          renameBtn.innerHTML = editing ? checkIcon() : pencilIcon();
+          renameBtn.setAttribute("aria-label", editing ? "Save name" : "Rename");
+
+          if (editing) {
+            nameInput.focus();
+            nameInput.select();
+          }
+        }
+
+        renameBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!editing) {
+            setEditing(true);
+            return;
+          }
+          const val = (nameInput.value ?? "").trim() || "Point set";
+          s.name = val;
+          setEditing(false);
+          state.actions.touch();
+        });
+
+        nameInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            renameBtn.click();
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            nameInput.value = s.name;
+            setEditing(false);
+          }
+        });
+
+        dupBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const copy = duplicateSchema(s);
+          state.actions.addSchema(copy);
+          showToast("Duplicated point set.", { variant: "success" });
+        });
+
+        delBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const ok = confirm(`Delete "${s.name}"?`);
+          if (!ok) return;
+          state.actions.deleteSchema(s.id);
+          showToast("Deleted point set.", { variant: "info" });
+        });
+
+        actions.append(renameBtn, dupBtn, delBtn);
+
+        leftSide.append(nameWrap);
+        topRow.append(leftSide, actions);
+
+        const bottomRow = el("div", "mt-2 flex items-center justify-between");
+        const small = el("div", "text-xs text-slate-400", `${s.totalPoints} points`);
+        bottomRow.append(small, badge);
+
+        row.append(topRow, bottomRow);
+
+        row.addEventListener("click", () => state.actions.selectSchema(s.id));
+
+        // Keyboard accessibility: allow enter to select schema when focusing row
+        row.tabIndex = 0;
+        row.classList.add("focus:outline-none", "focus-visible:ring-2", "focus-visible:ring-sky-200/60");
+        row.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            state.actions.selectSchema(s.id);
+          }
+        });
+
+        list.appendChild(row);
       }
     }
 
@@ -249,16 +350,15 @@ function buildLeftColumn(state) {
     stat.innerHTML = `
       <div class="flex items-center justify-between">
         <span class="text-slate-300">Remaining</span>
-        <span class="font-medium ${remaining === 0 ? "text-emerald-200" : remaining < 0 ? "text-rose-200" : "text-slate-100"}">
+        <span class="font-medium ${remaining === 0 ? "text-sky-200" : remaining < 0 ? "text-rose-200" : "text-slate-100"}">
           ${remaining}
         </span>
       </div>
     `;
   }
 
-  // Events
   createBtn.addEventListener("click", () => {
-    const newSchema = makeSchema(`New point set`, 40);
+    const newSchema = makeSchema("New point set", 40);
     state.actions.addSchema(newSchema);
     showToast("Created a new point set.", { variant: "success" });
   });
@@ -271,37 +371,47 @@ function buildLeftColumn(state) {
   });
 
   render();
-
   return { root, render };
 }
+
+/* -----------------------------
+   Center column (responsive + scroll)
+------------------------------ */
 
 function buildCenterColumn(state) {
   const root = el("div", "h-full flex flex-col");
 
-  // Header bar
-  const header = el("div", "flex items-center justify-between border-b border-white/10 px-6 py-4");
-  const title = el("div", "text-sm font-medium text-slate-100", "Chess pieces");
-  const subtitle = el("div", "text-xs text-slate-400", "Select a piece to edit details.");
-  header.append(title, subtitle);
+  const header = el(
+    "div",
+    "flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 px-4 sm:px-6 py-4"
+  );
+  header.append(
+    el("div", "text-sm font-medium text-slate-100", "Chess pieces"),
+    el("div", "text-xs text-slate-400", "Pick a piece to edit cost.")
+  );
 
-  // Grid area
-  const body = el("div", "relative flex-1 overflow-auto p-6");
-  const grid = el("div", "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4");
+  const body = el("div", "relative flex-1 overflow-auto p-4 sm:p-6");
+
+  // Mobile-first: more columns as space grows, cards shrink nicely
+  const grid = el(
+    "div",
+    "grid gap-3 " +
+      "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+  );
   body.appendChild(grid);
 
-  // Disabled overlay
   const disabledOverlay = el(
     "div",
     "absolute inset-0 hidden items-center justify-center bg-slate-950/55 backdrop-blur-sm"
   );
   const disabledCard = el(
     "div",
-    "rounded-2xl border border-white/12 bg-white/[0.03] px-5 py-4 text-center shadow-[0_20px_80px_rgba(0,0,0,0.6)]"
+    "rounded-2xl border-2 border-white/12 bg-white/[0.03] px-5 py-4 text-center shadow-[0_20px_80px_rgba(0,0,0,0.6)]"
   );
   disabledCard.innerHTML = `
-    <div class="mx-auto mb-2 h-2 w-2 rounded-full bg-indigo-300/80 shadow-[0_0_18px_rgba(129,140,248,0.65)]"></div>
+    <div class="mx-auto mb-2 h-2 w-2 rounded-full bg-sky-200/80 shadow-[0_0_18px_rgba(125,211,252,0.65)]"></div>
     <div class="text-sm font-medium text-slate-100">Create a new point set</div>
-    <div class="mt-1 text-xs text-slate-300">Then assign costs until you hit the total.</div>
+    <div class="mt-1 text-xs text-slate-300">Then assign costs until Remaining hits 0.</div>
   `;
   disabledOverlay.appendChild(disabledCard);
   body.appendChild(disabledOverlay);
@@ -325,39 +435,45 @@ function buildCenterColumn(state) {
       const card = document.createElement("button");
       card.type = "button";
       card.className =
-        "group relative rounded-2xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
+        "group relative rounded-2xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
         (isSelected
-          ? "border-indigo-300/35 bg-indigo-500/10 focus-visible:ring-indigo-300/70"
-          : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-cyan-200/60");
+          ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
+          : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60");
 
-      // Top row: thumbnail + name/type
       const top = el("div", "flex items-start gap-3");
 
-      const thumb = el("div", "h-14 w-14 shrink-0 rounded-xl border border-white/10 bg-white/[0.02]");
+      const thumb = el("div", "h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-xl border-2 border-white/10 bg-white/[0.02]");
       thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
       thumb.style.backgroundRepeat = "no-repeat";
       thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
       thumb.style.backgroundPosition = spritePos(p.sprite.c, p.sprite.r);
 
       const meta = el("div", "min-w-0 flex-1");
+      const typeIcon = p.type === "Noble" ? "👑" : "🧑";
+      const typeTip = p.type;
+
       meta.innerHTML = `
-        <div class="truncate text-sm font-medium text-slate-100">${escapeHtml(p.name)}</div>
-        <div class="mt-0.5 text-xs text-slate-400">${escapeHtml(p.type)}</div>
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="truncate text-sm font-medium text-slate-100">${escapeHtml(p.name)}</div>
+          </div>
+          <span
+            class="cwp-tooltip"
+            data-tip="${escapeHtml(typeTip)}"
+            aria-label="${escapeHtml(typeTip)}"
+          >${typeIcon}</span>
+        </div>
       `;
 
       top.append(thumb, meta);
 
-      // Bottom row: icons + cost badge
-      const bottom = el("div", "mt-3 flex items-center justify-between gap-3");
-      const icons = el("div", "flex items-center gap-1.5 text-slate-300");
-      for (const key of p.icons.slice(0, 3)) icons.appendChild(iconBadge(key));
+      const bottom = el("div", "mt-3 flex items-center justify-end");
       const costBadge = el(
         "div",
-        "inline-flex items-center rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-200"
+        "inline-flex items-center rounded-lg border-2 border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-200"
       );
       costBadge.textContent = cost == null ? "Cost: -" : `Cost: ${cost}`;
-
-      bottom.append(icons, costBadge);
+      bottom.appendChild(costBadge);
 
       card.append(top, bottom);
 
@@ -370,22 +486,27 @@ function buildCenterColumn(state) {
   return { root, render };
 }
 
+/* -----------------------------
+   Right column (cost input shorter, Remaining left)
+------------------------------ */
+
 function buildRightColumn(state) {
   const root = el("div", "h-full flex flex-col");
 
-  const header = el("div", "border-b border-white/10 px-6 py-4");
-  const heading = el("div", "text-sm font-medium text-slate-100", "Details");
-  const sub = el("div", "mt-1 text-xs text-slate-400", "Adjust cost for the selected point set.");
-  header.append(heading, sub);
+  const header = el("div", "border-b border-white/10 px-4 sm:px-6 py-4");
+  header.append(
+    el("div", "text-sm font-medium text-slate-100", "Details"),
+    el("div", "mt-1 text-xs text-slate-400", "Set cost for the selected point set.")
+  );
 
-  const body = el("div", "flex-1 overflow-auto p-6");
-  const footer = el("div", "border-t border-white/10 p-6");
+  const body = el("div", "flex-1 overflow-auto p-4 sm:p-6");
+  const footer = el("div", "border-t border-white/10 p-4 sm:p-6");
 
   const createArmyBtn = button(
     "Create army",
     "button",
-    "w-full rounded-xl border px-4 py-3 text-sm font-medium transition focus:outline-none focus-visible:ring-2 " +
-      "border-indigo-400/25 bg-indigo-500/15 text-slate-100 hover:bg-indigo-500/20 focus-visible:ring-indigo-300/70 disabled:cursor-not-allowed disabled:opacity-50"
+    "w-full rounded-xl border-2 px-4 py-3 text-sm font-medium transition focus:outline-none focus-visible:ring-2 " +
+      "border-sky-300/25 bg-sky-500/15 text-slate-100 hover:bg-sky-500/20 focus-visible:ring-sky-200/70 disabled:cursor-not-allowed disabled:opacity-50"
   );
 
   footer.appendChild(createArmyBtn);
@@ -397,30 +518,32 @@ function buildRightColumn(state) {
 
     body.innerHTML = "";
 
-    // Top piece card
-    const topCard = el("div", "rounded-2xl border border-white/10 bg-white/[0.02] p-4");
+    const topCard = el("div", "rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4");
     const topRow = el("div", "flex items-start gap-4");
 
-    const bigThumb = el("div", "h-24 w-24 shrink-0 rounded-2xl border border-white/10 bg-white/[0.02]");
+    const bigThumb = el("div", "h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-2xl border-2 border-white/10 bg-white/[0.02]");
     bigThumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
     bigThumb.style.backgroundRepeat = "no-repeat";
     bigThumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
     bigThumb.style.backgroundPosition = spritePos(piece.sprite.c, piece.sprite.r);
 
+    const typeIcon = piece.type === "Noble" ? "👑" : "🧑";
     const meta = el("div", "min-w-0 flex-1");
     meta.innerHTML = `
-      <div class="text-base font-semibold text-slate-100">${escapeHtml(piece.name)}</div>
-      <div class="mt-1 text-sm text-slate-300">${escapeHtml(piece.type)}</div>
-      <div class="mt-3 flex flex-wrap gap-2"></div>
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="text-base font-semibold text-slate-100">${escapeHtml(piece.name)}</div>
+          <div class="mt-1 text-sm text-slate-300">${escapeHtml(piece.type)}</div>
+        </div>
+        <span class="cwp-tooltip" data-tip="${escapeHtml(piece.type)}" aria-label="${escapeHtml(piece.type)}">${typeIcon}</span>
+      </div>
+      <div class="mt-3 text-xs text-slate-400">Use the cost field below. Remaining updates live.</div>
     `;
-    const tagWrap = meta.querySelector("div.mt-3");
-    for (const key of piece.icons) tagWrap.appendChild(iconPill(key));
 
     topRow.append(bigThumb, meta);
     topCard.appendChild(topRow);
 
-    // Cost editor
-    const costCard = el("div", "mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4");
+    const costCard = el("div", "mt-4 rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4");
 
     if (!schema) {
       costCard.innerHTML = `
@@ -434,8 +557,28 @@ function buildRightColumn(state) {
 
     const currentCost = Number(schema.costs[piece.id] ?? 0);
     const remaining = calcRemaining(schema);
+    const over = remaining < 0;
 
-    const costLabel = el("label", "block text-xs font-medium uppercase tracking-wide text-slate-400", "Cost");
+    // Remaining (left) + small cost input (right)
+    const row = el("div", "flex items-center justify-between gap-4");
+
+    const remainingBox = el(
+      "div",
+      "flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm " +
+        (remaining === 0
+          ? "border-sky-200/35 bg-sky-500/10 text-sky-100"
+          : over
+          ? "border-rose-300/25 bg-rose-500/10 text-rose-100"
+          : "border-white/10 bg-white/[0.02] text-slate-100")
+    );
+    remainingBox.innerHTML = `
+      <span class="text-slate-300">Remaining</span>
+      <span class="font-semibold">${remaining}</span>
+      ${over ? `<span class="cwp-tooltip" data-tip="Over budget" aria-label="Over budget">⚠️</span>` : ""}
+    `;
+
+    const costWrap = el("div", "flex items-center gap-2");
+    const costLabel = el("label", "text-xs font-medium uppercase tracking-wide text-slate-400", "Cost");
     costLabel.setAttribute("for", "costInput");
 
     const costInput = document.createElement("input");
@@ -443,28 +586,18 @@ function buildRightColumn(state) {
     costInput.type = "number";
     costInput.min = "0";
     costInput.step = "1";
+    costInput.inputMode = "numeric";
     costInput.value = String(currentCost);
     costInput.className =
-      "mt-2 w-full rounded-xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-200/60";
+      "w-[88px] rounded-xl border-2 border-white/12 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-200/60";
 
-    const helper = el(
-      "div",
-      "mt-3 flex items-center justify-between text-xs"
-    );
-    helper.innerHTML = `
-      <span class="text-slate-400">Total: <span class="text-slate-200">${schema.totalPoints}</span></span>
-      <span class="${remaining === 0 ? "text-emerald-200" : remaining < 0 ? "text-rose-200" : "text-slate-200"}">
-        Remaining: ${remaining}
-      </span>
-    `;
+    costWrap.append(costLabel, costInput);
 
     const note = el("p", "mt-3 text-sm text-slate-300");
-    note.textContent =
-      "Tip: Assign costs until the remaining points hits 0. Then you can create the army.";
+    note.textContent = "When Remaining hits 0, Create army becomes available.";
 
-    costCard.append(costLabel, costInput, helper, note);
+    costCard.append(row, note);
 
-    // Enable Create Army only when exactly filled
     createArmyBtn.disabled = remaining !== 0;
 
     costInput.addEventListener("input", () => {
@@ -487,7 +620,7 @@ function buildRightColumn(state) {
       return;
     }
 
-    showToast("Army creation unlocked (hook this up next).", { variant: "success" });
+    showToast("Create Army: ready for the next step.", { variant: "success" });
   });
 
   render();
@@ -510,7 +643,6 @@ function createState(schemas, ui) {
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
-
     emit() {
       for (const fn of listeners) fn();
     },
@@ -539,9 +671,18 @@ function createState(schemas, ui) {
         state.selectedSchemaId = schema.id;
         state.emit();
       },
+      deleteSchema(id) {
+        const idx = state.schemas.findIndex((s) => s.id === id);
+        if (idx === -1) return;
+        state.schemas.splice(idx, 1);
+
+        if (state.selectedSchemaId === id) {
+          state.selectedSchemaId = state.schemas[0]?.id ?? null;
+        }
+        state.emit();
+      },
     },
   };
-
   return state;
 }
 
@@ -551,14 +692,12 @@ function loadSchemas() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((s) => s && typeof s === "object")
-      .map((s) => ({
-        id: String(s.id ?? cryptoId()),
-        name: String(s.name ?? "Point set"),
-        totalPoints: Number(s.totalPoints ?? 40),
-        costs: typeof s.costs === "object" && s.costs ? s.costs : {},
-      }));
+    return parsed.map((s) => ({
+      id: String(s.id ?? cryptoId()),
+      name: String(s.name ?? "Point set"),
+      totalPoints: Number(s.totalPoints ?? 40),
+      costs: (s.costs && typeof s.costs === "object") ? s.costs : {},
+    }));
   } catch {
     return [];
   }
@@ -573,11 +712,15 @@ function saveSchemas(schemas) {
 }
 
 function makeSchema(name, totalPoints) {
+  return { id: cryptoId(), name, totalPoints, costs: {} };
+}
+
+function duplicateSchema(schema) {
   return {
     id: cryptoId(),
-    name,
-    totalPoints,
-    costs: {},
+    name: `${schema.name} (copy)`,
+    totalPoints: schema.totalPoints,
+    costs: { ...(schema.costs ?? {}) },
   };
 }
 
@@ -588,12 +731,11 @@ function calcRemaining(schema) {
 }
 
 function cryptoId() {
-  // short-ish, stable enough for demo
   return (crypto?.randomUUID?.() ?? `id_${Math.random().toString(16).slice(2)}`).slice(0, 8);
 }
 
 /* -----------------------------
-   UI helpers
+   DOM helpers
 ------------------------------ */
 
 function el(tag, className, text) {
@@ -608,6 +750,17 @@ function button(label, type, className) {
   b.type = type;
   b.className = className;
   b.textContent = label;
+  return b;
+}
+
+function iconButton(label, svg, ringClass) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className =
+    "inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 border-white/10 bg-white/[0.03] text-slate-200 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 " +
+    ringClass;
+  b.setAttribute("aria-label", label);
+  b.innerHTML = svg;
   return b;
 }
 
@@ -626,84 +779,9 @@ function clearError(inputEl, errorEl) {
 }
 
 function spritePos(c, r) {
-  // background-position percent based on grid
   const x = SPRITE_COLS === 1 ? 0 : (c / (SPRITE_COLS - 1)) * 100;
   const y = SPRITE_ROWS === 1 ? 0 : (r / (SPRITE_ROWS - 1)) * 100;
   return `${x}% ${y}%`;
-}
-
-// Minimal icon system (placeholders, but clean + readable)
-function iconBadge(key) {
-  const span = el(
-    "span",
-    "inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] text-slate-200"
-  );
-  span.textContent = iconLabel(key);
-  span.title = iconTitle(key);
-  return span;
-}
-
-function iconPill(key) {
-  const span = el(
-    "span",
-    "inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-200"
-  );
-
-  const dot = el(
-    "span",
-    "h-2 w-2 rounded-full bg-indigo-300/70 shadow-[0_0_14px_rgba(129,140,248,0.55)]"
-  );
-  const t = el("span", "font-medium", iconTitle(key));
-  span.append(dot, t);
-  return span;
-}
-
-function iconLabel(key) {
-  const map = {
-    shield: "Shield",
-    swap: "Swap",
-    jump: "Leap",
-    line: "Line",
-    diag: "Diag",
-    omni: "Omni",
-    crown: "Crown",
-    move: "Move",
-    frontcap: "Front cap",
-    nocap: "No cap",
-    nopromo: "No promo",
-    restraint: "Restraint",
-    wild: "Wild",
-    range: "Range",
-    curse: "Curse",
-    anywhite: "Any (W)",
-    anyblack: "Any (B)",
-    kinglike: "King",
-  };
-  return map[key] ?? key;
-}
-
-function iconTitle(key) {
-  const map = {
-    shield: "Has shield",
-    swap: "Swappable",
-    jump: "Leaping movement",
-    line: "Straight movement",
-    diag: "Diagonal movement",
-    omni: "Moves any direction",
-    crown: "Royal piece",
-    move: "Basic movement",
-    frontcap: "Captures forward",
-    nocap: "Cannot capture",
-    nopromo: "No promotion",
-    restraint: "Has restraint",
-    wild: "Wild movement",
-    range: "Extended range",
-    curse: "Applies restriction",
-    anywhite: "Any (White)",
-    anyblack: "Any (Black)",
-    kinglike: "Counts as King",
-  };
-  return map[key] ?? key;
 }
 
 function escapeHtml(str) {
@@ -713,4 +791,45 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+/* -----------------------------
+   Icons (tiny, clean)
+------------------------------ */
+
+function pencilIcon() {
+  return `
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  `;
+}
+
+function checkIcon() {
+  return `
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+}
+
+function duplicateIcon() {
+  return `
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 8h12v12H8V8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M4 16V4h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
+}
+
+function trashIcon() {
+  return `
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M6 7l1 14h10l1-14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M9 7V4h6v3" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  `;
 }

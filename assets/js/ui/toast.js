@@ -20,14 +20,14 @@ export function showToast(message, { variant = "info", duration = 2200 } = {}) {
 
   const dot =
     variant === "success"
-      ? "bg-emerald-300/80 shadow-[0_0_14px_rgba(110,231,183,0.6)]"
+      ? "bg-sky-200/80 shadow-[0_0_14px_rgba(125,211,252,0.6)]"
       : variant === "error"
       ? "bg-rose-300/80 shadow-[0_0_14px_rgba(253,164,175,0.6)]"
-      : "bg-cyan-200/70 shadow-[0_0_14px_rgba(165,243,252,0.55)]";
+      : "bg-sky-200/70 shadow-[0_0_14px_rgba(125,211,252,0.55)]";
 
   const toast = document.createElement("div");
   toast.className =
-    "pointer-events-auto w-full max-w-md rounded-xl border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_18px_60px_rgba(0,0,0,0.7)] backdrop-blur";
+    "pointer-events-auto w-full max-w-md rounded-xl border-2 border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_18px_60px_rgba(0,0,0,0.7)] backdrop-blur";
   toast.setAttribute("role", "status");
   toast.setAttribute("aria-live", "polite");
 
@@ -57,10 +57,7 @@ export function showToast(message, { variant = "info", duration = 2200 } = {}) {
         ],
         { duration: 180, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
       )
-      .addEventListener("finish", () => {
-        root.innerHTML = "";
-      });
-    // Fallback cleanup
+      .addEventListener("finish", () => (root.innerHTML = ""));
     setTimeout(() => (root.innerHTML = ""), 220);
   }, duration);
 }
