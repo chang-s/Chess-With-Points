@@ -201,8 +201,9 @@ function buildLeftColumn(state) {
   pointsSelect.id = "pointsTotalSelect";
   pointsSelect.className =
     "w-full rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 pr-11 py-3 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-200/70";
+  pointsSelect.style.colorScheme = "dark";
   pointsSelect.innerHTML = POINT_TOTAL_OPTIONS.map(
-    (n) => `<option value="${n}">${n} points</option>`
+    (n) => `<option value="${n}" style="background:#020617;color:#e2e8f0;">${n} points</option>`
   ).join("");
 
   pointsRow.append(pointsLabel, pointsSelect);
