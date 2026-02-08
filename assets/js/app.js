@@ -83,12 +83,50 @@ function openJoinModal() {
 const POINT_TOTAL_OPTIONS = [40, 80, 120, 160, 400];
 const SCHEMAS_PER_PAGE = 6;
 const STORAGE_KEY = "cwp_point_schemas_v2";
+const BASE_FILTER_OPTIONS = ["pawn", "knight", "bishop", "rook", "queen", "king"];
+const TYPE_FILTER_OPTIONS = ["commoner", "noble"];
+const PIECE_BASE_MAP = {
+  pawn: "pawn",
+  squire: "pawn",
+  "shield-bearer": "pawn",
+  peasant: "pawn",
+  adept: "pawn",
+  mule: "pawn",
+  "wild-stallion": "pawn",
+
+  knight: "knight",
+  "clergy-riders": "knight",
+  "lance-rider": "knight",
+  pegasus: "knight",
+
+  bishop: "bishop",
+  "high-priest": "bishop",
+  "corrupted-abbot": "bishop",
+  "arcane-priest": "bishop",
+
+  rook: "rook",
+  "damaged-chariot": "rook",
+  "fast-chariot": "rook",
+  "armored-chariot": "rook",
+
+  queen: "queen",
+  "arcane-tower": "queen",
+  sorceress: "queen",
+  "joan-of-arc": "queen",
+  "queen-of-air": "queen",
+  "queen-of-darkness": "queen",
+
+  king: "king",
+  "the-old-queen": "king",
+};
 
 function openCreateOverlay() {
   const state = createState(loadSchemas(), {
     selectedSchemaId: null,
     selectedPieceId: PIECES[0].id,
     schemaPage: 1,
+    pieceSearch: "",
+    pieceFilters: { types: [], bases: [] },
   });
 
   if (state.schemas.length > 0) state.selectedSchemaId = state.schemas[0].id;
@@ -482,11 +520,39 @@ function buildLeftColumn(state) {
 function buildCenterColumn(state) {
   const root = el("div", "h-full min-h-0 flex flex-col");
 
-  const header = el("div", "border-b border-white/10 px-4 sm:px-6 py-4");
-  header.append(
+  const header = el(
+    "div",
+    "border-b border-white/10 px-4 sm:px-6 py-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+  );
+  const headerLeft = el("div", "min-w-0");
+  headerLeft.append(
     el("div", "text-sm font-medium text-slate-100", "Chess pieces"),
     el("div", "mt-1 text-xs text-slate-400", "Pick a piece to edit cost.")
   );
+
+  const headerRight = el("div", "w-full sm:w-auto flex items-center justify-end gap-2");
+  const searchWrap = el("div", "relative w-full sm:w-[220px]");
+  const searchInput = document.createElement("input");
+  searchInput.id = "pieceSearchInput";
+  searchInput.type = "text";
+  searchInput.placeholder = "Search name or type";
+  searchInput.autocomplete = "off";
+  searchInput.className =
+    "w-full rounded-xl border-2 border-white/12 bg-white/[0.03] pl-9 pr-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-sky-200/60";
+
+  const searchIcon = el(
+    "span",
+    "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400",
+    "🔎"
+  );
+  searchWrap.append(searchIcon, searchInput);
+
+  const filterBtn = iconButton("Filters", filterIcon(), "focus-visible:ring-sky-200/60");
+  filterBtn.id = "pieceFilterBtn";
+  setTooltip(filterBtn, "Filter pieces");
+
+  headerRight.append(searchWrap, filterBtn);
+  header.append(headerLeft, headerRight);
 
   const body = el("div", "relative min-h-0 flex-1 overflow-auto p-4 sm:p-6");
 
@@ -519,14 +585,49 @@ function buildCenterColumn(state) {
   function render() {
     const schema = state.getSelectedSchema();
     const selectedId = state.selectedPieceId;
+    const searchQuery = (state.pieceSearch ?? "").trim().toLowerCase();
+    const activeTypeFilters = new Set((state.pieceFilters?.types ?? []).map((v) => String(v).toLowerCase()));
+    const activeBaseFilters = new Set((state.pieceFilters?.bases ?? []).map((v) => String(v).toLowerCase()));
+    const hasActiveFilters = activeTypeFilters.size > 0 || activeBaseFilters.size > 0;
 
     disabledOverlay.classList.toggle("hidden", !!schema);
     grid.classList.toggle("opacity-40", !schema);
     grid.classList.toggle("pointer-events-none", !schema);
 
+    searchInput.value = state.pieceSearch ?? "";
+    filterBtn.className =
+      "inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 text-slate-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60 " +
+      (hasActiveFilters
+        ? "border-sky-200/45 bg-sky-500/20"
+        : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]");
+
     grid.innerHTML = "";
 
-    for (const p of PIECES) {
+    const visiblePieces = PIECES.filter((p) => {
+      const typeValue = String(p.type ?? "").toLowerCase();
+      const baseValue = getBasePieceId(p);
+
+      const matchesSearch =
+        !searchQuery ||
+        `${p.name} ${p.type} ${toTitle(baseValue)}`.toLowerCase().includes(searchQuery);
+      const matchesType = activeTypeFilters.size === 0 || activeTypeFilters.has(typeValue);
+      const matchesBase = activeBaseFilters.size === 0 || activeBaseFilters.has(baseValue);
+
+      return matchesSearch && matchesType && matchesBase;
+    });
+
+    if (visiblePieces.length === 0) {
+      grid.appendChild(
+        el(
+          "div",
+          "col-span-full rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4 text-sm text-slate-300",
+          "No pieces match your current search/filter."
+        )
+      );
+      return;
+    }
+
+    for (const p of visiblePieces) {
       const isSelected = p.id === selectedId;
       const cost = schema ? Number(schema.costs[p.id]) : null;
       const normalizedCost = Number.isFinite(cost) ? cost : 0;
@@ -544,7 +645,7 @@ function buildCenterColumn(state) {
               ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
               : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60"));
 
-      const thumb = el("div", "mx-auto h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-2xl border-2 border-white/10 bg-white/[0.02]");
+      const thumb = el("div", "mx-auto h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-full border-2 border-white/10 bg-white/[0.02]");
       thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
       thumb.style.backgroundRepeat = "no-repeat";
       thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
@@ -579,6 +680,17 @@ function buildCenterColumn(state) {
       grid.appendChild(card);
     }
   }
+
+  searchInput.addEventListener("input", () => {
+    state.actions.setPieceSearch(searchInput.value ?? "");
+  });
+
+  filterBtn.addEventListener("click", () => {
+    openPieceFilterModal({
+      filters: state.pieceFilters,
+      onApply: (next) => state.actions.setPieceFilters(next),
+    });
+  });
 
   render();
   return { root, render };
@@ -682,11 +794,10 @@ function buildRightColumn(state) {
 
     const costInput = document.createElement("input");
     costInput.id = "costInput";
-    costInput.type = "number";
-    costInput.min = "0";
-    costInput.step = "0.1";
-    costInput.inputMode = "numeric";
-    costInput.value = String(currentCost);
+    costInput.type = "text";
+    costInput.inputMode = "decimal";
+    costInput.autocomplete = "off";
+    costInput.value = formatPoints(currentCost);
     costInput.className =
       "w-[88px] rounded-xl border-2 border-white/12 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-200/60";
 
@@ -703,8 +814,19 @@ function buildRightColumn(state) {
     costInput.addEventListener("input", () => {
       const cursorStart = costInput.selectionStart;
       const cursorEnd = costInput.selectionEnd;
-      const raw = Number(costInput.value);
-      const next = Number.isFinite(raw) ? roundToTwo(Math.max(0, raw)) : 0;
+      const rawText = String(costInput.value ?? "").trim();
+
+      if (rawText === "" || rawText === "." || rawText.endsWith(".")) {
+        return;
+      }
+      if (!/^\d*\.?\d{0,2}$/.test(rawText)) {
+        return;
+      }
+
+      const raw = Number(rawText);
+      if (!Number.isFinite(raw)) return;
+
+      const next = roundToTwo(Math.max(0, raw));
       schema.costs[piece.id] = next;
       state.actions.touch();
 
@@ -716,6 +838,20 @@ function buildRightColumn(state) {
           nextInput.setSelectionRange(cursorStart, cursorEnd);
         }
       }
+    });
+
+    costInput.addEventListener("blur", () => {
+      const rawText = String(costInput.value ?? "").trim();
+      if (rawText === "" || rawText === ".") {
+        schema.costs[piece.id] = 0;
+        state.actions.touch();
+        return;
+      }
+
+      const raw = Number(rawText);
+      const next = Number.isFinite(raw) ? roundToTwo(Math.max(0, raw)) : 0;
+      schema.costs[piece.id] = next;
+      state.actions.touch();
     });
 
     body.append(topCard, costCard);
@@ -754,6 +890,8 @@ function createState(schemas, ui) {
     selectedSchemaId: ui.selectedSchemaId,
     selectedPieceId: ui.selectedPieceId,
     schemaPage: ui.schemaPage ?? 1,
+    pieceSearch: ui.pieceSearch ?? "",
+    pieceFilters: ui.pieceFilters ?? { types: [], bases: [] },
     overlayClose: null,
 
     onChange(fn) {
@@ -814,6 +952,17 @@ function createState(schemas, ui) {
         state.schemaPage = clamp(page, 1, totalPages);
         state.emit();
       },
+      setPieceSearch(value) {
+        state.pieceSearch = String(value ?? "");
+        state.emit();
+      },
+      setPieceFilters(next) {
+        state.pieceFilters = {
+          types: Array.isArray(next?.types) ? next.types : [],
+          bases: Array.isArray(next?.bases) ? next.bases : [],
+        };
+        state.emit();
+      },
     },
   };
   return state;
@@ -863,6 +1012,85 @@ function openDeleteConfirmModal({ onConfirm }) {
     modal.close("confirm");
     onConfirm?.();
   });
+}
+
+function openPieceFilterModal({ filters, onApply }) {
+  const nextTypes = new Set((filters?.types ?? []).map((v) => String(v).toLowerCase()));
+  const nextBases = new Set((filters?.bases ?? []).map((v) => String(v).toLowerCase()));
+
+  const content = el("div");
+  const sectionType = el("div", "space-y-2");
+  sectionType.appendChild(el("div", "text-xs font-medium uppercase tracking-wide text-slate-400", "Type"));
+  const typeGrid = el("div", "grid grid-cols-2 gap-2");
+
+  for (const type of TYPE_FILTER_OPTIONS) {
+    const row = filterToggleRow(toTitle(type), nextTypes.has(type), (checked) => {
+      if (checked) nextTypes.add(type);
+      else nextTypes.delete(type);
+    });
+    typeGrid.appendChild(row);
+  }
+  sectionType.appendChild(typeGrid);
+
+  const sectionBase = el("div", "mt-4 space-y-2");
+  sectionBase.appendChild(el("div", "text-xs font-medium uppercase tracking-wide text-slate-400", "Base piece"));
+  const baseGrid = el("div", "grid grid-cols-2 gap-2");
+  for (const base of BASE_FILTER_OPTIONS) {
+    const row = filterToggleRow(toTitle(base), nextBases.has(base), (checked) => {
+      if (checked) nextBases.add(base);
+      else nextBases.delete(base);
+    });
+    baseGrid.appendChild(row);
+  }
+  sectionBase.appendChild(baseGrid);
+
+  const actions = el("div", "mt-5 flex items-center justify-between gap-2");
+  const clearBtn = button(
+    "Clear",
+    "button",
+    "rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60"
+  );
+  const applyBtn = button(
+    "Apply",
+    "button",
+    "rounded-xl border-2 border-sky-200/45 bg-sky-500/25 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-500/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/70"
+  );
+  actions.append(clearBtn, applyBtn);
+
+  content.append(sectionType, sectionBase, actions);
+
+  const modal = openModal({
+    title: "Filter pieces",
+    content,
+    initialFocusSelector: "input[type='checkbox']",
+  });
+
+  clearBtn.addEventListener("click", () => {
+    nextTypes.clear();
+    nextBases.clear();
+    onApply?.({ types: [], bases: [] });
+    modal.close("clear");
+  });
+
+  applyBtn.addEventListener("click", () => {
+    onApply?.({ types: [...nextTypes], bases: [...nextBases] });
+    modal.close("apply");
+  });
+}
+
+function filterToggleRow(label, checked, onChange) {
+  const row = el(
+    "label",
+    "flex items-center gap-2 rounded-lg border-2 border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-slate-200"
+  );
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = checked;
+  input.className = "h-4 w-4 rounded border-white/20 bg-white/[0.03] text-sky-300 focus-visible:ring-sky-200/60";
+  const text = el("span", "leading-none", label);
+  row.append(input, text);
+  input.addEventListener("change", () => onChange?.(input.checked));
+  return row;
 }
 
 function loadSchemas() {
@@ -931,6 +1159,16 @@ function clamp(value, min, max) {
   const n = Number(value);
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, n));
+}
+
+function toTitle(value) {
+  const str = String(value ?? "");
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function getBasePieceId(piece) {
+  const id = String(piece?.id ?? "").toLowerCase();
+  return PIECE_BASE_MAP[id] ?? id;
 }
 
 function cryptoId() {
@@ -1046,6 +1284,14 @@ function backIcon() {
   return `
     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+}
+
+function filterIcon() {
+  return `
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6h16l-6 7v5l-4 2v-7L4 6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
     </svg>
   `;
 }
