@@ -464,20 +464,12 @@ function buildLeftColumn(state) {
     pager.innerHTML = "";
 
     if (totalPages > 1) {
-      const prevBtn = pageButton("<", state.schemaPage === 1, false);
-      prevBtn.addEventListener("click", () => state.actions.setSchemaPage(state.schemaPage - 1));
-      pager.appendChild(prevBtn);
-
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
         const active = pageNum === state.schemaPage;
         const pageBtn = pageButton(String(pageNum), false, active);
         pageBtn.addEventListener("click", () => state.actions.setSchemaPage(pageNum));
         pager.appendChild(pageBtn);
       }
-
-      const nextBtn = pageButton(">", state.schemaPage === totalPages, false);
-      nextBtn.addEventListener("click", () => state.actions.setSchemaPage(state.schemaPage + 1));
-      pager.appendChild(nextBtn);
     }
 
     if (!schema) {
@@ -643,7 +635,7 @@ function buildCenterColumn(state) {
       const isSelected = p.id === selectedId;
       const cost = schema ? Number(schema.costs[p.id]) : null;
       const normalizedCost = Number.isFinite(cost) ? cost : 0;
-      const needsCost = !!schema && normalizedCost <= 0;
+      const needsCost = !!schema && pieceRequiresPositiveCost(p) && normalizedCost <= 0;
 
       const card = document.createElement("button");
       card.type = "button";
@@ -651,8 +643,8 @@ function buildCenterColumn(state) {
         "group relative flex flex-col items-center rounded-2xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
         (needsCost
           ? (isSelected
-              ? "border-rose-300/45 bg-rose-400/12 focus-visible:ring-rose-200/70"
-              : "border-rose-300/30 bg-rose-400/8 hover:bg-rose-400/12 focus-visible:ring-rose-200/60")
+              ? "border-rose-300/55 bg-rose-400/28 focus-visible:ring-rose-200/70"
+              : "border-rose-300/45 bg-rose-400/24 hover:bg-rose-400/30 focus-visible:ring-rose-200/60")
           : (isSelected
               ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
               : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60"));
@@ -819,7 +811,7 @@ function buildRightColumn(state) {
     costWrap.append(costLabel, costInput);
 
     const note = el("p", "mt-3 text-sm text-slate-300");
-    note.textContent = "Set every piece above 0. Create army unlocks when Remaining hits 0.";
+    note.textContent = "Set every piece above 0 (King can be 0). Create army unlocks when Remaining hits 0.";
 
     row.append(remainingBox, costWrap);
     costCard.append(row, note);
@@ -1153,7 +1145,11 @@ function calcRemaining(schema) {
 }
 
 function hasAllPieceCosts(schema) {
-  return PIECES.every((p) => Number(schema.costs?.[p.id]) > 0);
+  return PIECES.every((p) => !pieceRequiresPositiveCost(p) || Number(schema.costs?.[p.id]) > 0);
+}
+
+function pieceRequiresPositiveCost(piece) {
+  return String(piece?.id ?? "") !== "king";
 }
 
 function isNearZero(value) {
