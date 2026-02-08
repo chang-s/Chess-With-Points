@@ -11,38 +11,48 @@ function ensureModalRoot() {
   return root;
 }
 
-/**
- * Creates and opens a modal.
- * - closes on Escape
- * - closes on backdrop click
- * - traps focus
- * - restores focus to opener on close
- */
-export function openModal({
-  title,
-  content, // HTMLElement
-  initialFocusSelector,
-  onClose,
-}) {
+export function openModal({ title, content, initialFocusSelector, onClose }) {
+  return openDialog({ variant: "modal", title, content, initialFocusSelector, onClose });
+}
+
+export function openOverlay({ title, content, initialFocusSelector, onClose }) {
+  return openDialog({ variant: "overlay", title, content, initialFocusSelector, onClose });
+}
+
+function openDialog({ variant, title, content, initialFocusSelector, onClose }) {
   const root = ensureModalRoot();
   const previouslyFocused = document.activeElement;
 
   const backdrop = document.createElement("div");
   backdrop.className =
-    "fixed inset-0 z-40 flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-sm";
+    "fixed inset-0 z-40 bg-black/55 backdrop-blur-sm";
+
+  // Click-outside close target for overlay too (backdrop is the outside)
+  backdrop.setAttribute("aria-hidden", "true");
+
+  const shell = document.createElement("div");
+  shell.className = variant === "overlay"
+    ? "fixed inset-0 z-50 flex"
+    : "fixed inset-0 z-50 flex items-center justify-center px-4 py-8";
 
   const dialog = document.createElement("div");
-  dialog.className =
-    "relative z-50 w-full max-w-lg rounded-2xl border border-white/12 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
+  dialog.tabIndex = -1;
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", title);
 
-  // Make container focusable for safety
-  dialog.tabIndex = -1;
+  if (variant === "overlay") {
+    dialog.className =
+      "relative m-0 h-full w-full border border-white/10 bg-slate-950/75 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
+  } else {
+    dialog.className =
+      "relative w-full max-w-lg rounded-2xl border border-white/12 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
+  }
 
   const header = document.createElement("div");
-  header.className = "flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5";
+  header.className = variant === "overlay"
+    ? "flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4"
+    : "flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5";
 
   const titleEl = document.createElement("h2");
   titleEl.className = "text-base font-semibold tracking-tight text-slate-100";
@@ -60,7 +70,10 @@ export function openModal({
   `;
 
   const body = document.createElement("div");
-  body.className = "px-6 py-5";
+  body.className = variant === "overlay"
+    ? "h-[calc(100%-57px)] px-0 py-0"
+    : "px-6 py-5";
+
   body.appendChild(content);
 
   header.appendChild(titleEl);
@@ -68,35 +81,20 @@ export function openModal({
 
   dialog.appendChild(header);
   dialog.appendChild(body);
-  backdrop.appendChild(dialog);
-  root.appendChild(backdrop);
 
-  // Subtle "glow" edge
+  // subtle glow border
   const glow = document.createElement("div");
   glow.className =
-    "pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-b from-indigo-400/15 via-transparent to-cyan-300/10 opacity-80";
+    "pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-b from-indigo-400/12 via-transparent to-cyan-300/10 opacity-80";
+  if (variant === "overlay") glow.classList.add("hidden"); // overlay already covers screen; keep it cleaner
   dialog.appendChild(glow);
+
+  root.appendChild(backdrop);
+  shell.appendChild(dialog);
+  root.appendChild(shell);
 
   const trap = createFocusTrap(dialog);
   trap.activate();
-
-  function close(reason = "close") {
-    trap.deactivate();
-
-    // Animate out quickly
-    backdrop.animate(
-      [{ opacity: 1 }, { opacity: 0 }],
-      { duration: 140, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
-    ).onfinish = () => {
-      backdrop.remove();
-      if (typeof onClose === "function") onClose(reason);
-      if (previouslyFocused && typeof previouslyFocused.focus === "function") {
-        previouslyFocused.focus();
-      }
-    };
-
-    window.removeEventListener("keydown", onEsc, true);
-  }
 
   function onEsc(e) {
     if (e.key === "Escape") {
@@ -105,34 +103,52 @@ export function openModal({
     }
   }
 
-  // Close on backdrop click only (not dialog click)
-  backdrop.addEventListener("mousedown", (e) => {
-    if (e.target === backdrop) close("backdrop");
-  });
+  function close(reason = "close") {
+    trap.deactivate();
+    window.removeEventListener("keydown", onEsc, true);
 
+    const a = backdrop.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 140,
+      easing: "cubic-bezier(.2,.9,.2,1)",
+      fill: "both",
+    });
+    const b = dialog.animate(
+      [
+        { opacity: 1, transform: "translateY(0) scale(1)" },
+        { opacity: 0, transform: "translateY(6px) scale(0.99)" },
+      ],
+      { duration: 140, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
+    );
+
+    Promise.allSettled([a.finished, b.finished]).finally(() => {
+      shell.remove();
+      backdrop.remove();
+      if (typeof onClose === "function") onClose(reason);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
+    });
+  }
+
+  // Close on clicking outside dialog
+  backdrop.addEventListener("mousedown", () => close("backdrop"));
   closeBtn.addEventListener("click", () => close("button"));
-
   window.addEventListener("keydown", onEsc, true);
 
   // Animate in
-  backdrop.animate(
-    [{ opacity: 0 }, { opacity: 1 }],
-    { duration: 160, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
-  );
+  backdrop.animate([{ opacity: 0 }, { opacity: 1 }], {
+    duration: 160,
+    easing: "cubic-bezier(.2,.9,.2,1)",
+    fill: "both",
+  });
   dialog.animate(
     [
-      { opacity: 0, transform: "translateY(10px) scale(0.98)" },
+      { opacity: 0, transform: "translateY(10px) scale(0.985)" },
       { opacity: 1, transform: "translateY(0) scale(1)" },
     ],
     { duration: 180, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
   );
 
-  // Focus management
   queueMicrotask(() => {
-    const initial = initialFocusSelector
-      ? dialog.querySelector(initialFocusSelector)
-      : null;
-
+    const initial = initialFocusSelector ? dialog.querySelector(initialFocusSelector) : null;
     if (initial && typeof initial.focus === "function") initial.focus();
     else trap.focusFirst();
   });

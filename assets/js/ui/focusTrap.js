@@ -9,11 +9,10 @@ const FOCUSABLE_SELECTOR = [
 ].join(",");
 
 export function createFocusTrap(container) {
-  if (!container) throw new Error("Focus trap requires a container element.");
-
   function getFocusable() {
-    return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR))
-      .filter((el) => el.offsetParent !== null || el === document.activeElement);
+    return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+      (el) => el.offsetParent !== null || el === document.activeElement
+    );
   }
 
   function onKeyDown(e) {
