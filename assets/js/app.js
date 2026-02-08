@@ -106,7 +106,7 @@ function openCreateOverlay() {
   );
   const center = el(
     "section",
-    "lg:col-span-6 border-b lg:border-b-0 lg:border-r border-white/10"
+    "min-h-0 lg:col-span-6 border-b lg:border-b-0 lg:border-r border-white/10"
   );
   const right = el(
     "aside",
@@ -379,7 +379,7 @@ function buildLeftColumn(state) {
 ------------------------------ */
 
 function buildCenterColumn(state) {
-  const root = el("div", "h-full flex flex-col");
+  const root = el("div", "h-full min-h-0 flex flex-col");
 
   const header = el(
     "div",
@@ -390,7 +390,7 @@ function buildCenterColumn(state) {
     el("div", "text-xs text-slate-400", "Pick a piece to edit cost.")
   );
 
-  const body = el("div", "relative flex-1 overflow-auto p-4 sm:p-6");
+  const body = el("div", "relative min-h-0 flex-1 overflow-auto p-4 sm:p-6");
 
   // Mobile-first: more columns as space grows, cards shrink nicely
   const grid = el(
@@ -437,22 +437,22 @@ function buildCenterColumn(state) {
       const card = document.createElement("button");
       card.type = "button";
       card.className =
-        "group relative rounded-2xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
+        "group relative flex flex-col items-center rounded-2xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
         (needsCost
           ? (isSelected
-              ? "border-rose-300/45 bg-rose-500/10 focus-visible:ring-rose-200/70"
-              : "border-rose-300/30 bg-rose-500/5 hover:bg-rose-500/10 focus-visible:ring-rose-200/60")
+              ? "border-rose-300/45 bg-rose-400/12 focus-visible:ring-rose-200/70"
+              : "border-rose-300/30 bg-rose-400/8 hover:bg-rose-400/12 focus-visible:ring-rose-200/60")
           : (isSelected
               ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
               : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60"));
 
-      const thumb = el("div", "h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-2xl border-2 border-white/10 bg-white/[0.02]");
+      const thumb = el("div", "mx-auto h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-2xl border-2 border-white/10 bg-white/[0.02]");
       thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
       thumb.style.backgroundRepeat = "no-repeat";
       thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
       thumb.style.backgroundPosition = spritePos(p.sprite.c, p.sprite.r);
 
-      const typeIcon = p.type === "Noble" ? "👑" : "🧑";
+      const typeIcon = p.type === "Noble" ? "👑" : "🌱";
       const typeTip = p.type;
 
       const name = el("div", "mt-3 text-center text-sm font-medium leading-snug text-slate-100");
@@ -527,7 +527,7 @@ function buildRightColumn(state) {
     bigThumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
     bigThumb.style.backgroundPosition = spritePos(piece.sprite.c, piece.sprite.r);
 
-    const typeIcon = piece.type === "Noble" ? "👑" : "🧑";
+    const typeIcon = piece.type === "Noble" ? "👑" : "🌱";
     const meta = el("div", "min-w-0 flex-1");
     meta.innerHTML = `
       <div class="flex items-start justify-between gap-3">
