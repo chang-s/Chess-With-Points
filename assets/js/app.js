@@ -590,9 +590,18 @@ function buildCenterColumn(state) {
     const activeBaseFilters = new Set((state.pieceFilters?.bases ?? []).map((v) => String(v).toLowerCase()));
     const hasActiveFilters = activeTypeFilters.size > 0 || activeBaseFilters.size > 0;
 
-    disabledOverlay.classList.toggle("hidden", !!schema);
-    grid.classList.toggle("opacity-40", !schema);
-    grid.classList.toggle("pointer-events-none", !schema);
+    const hasSchema = !!schema;
+    disabledOverlay.classList.toggle("hidden", hasSchema);
+    grid.classList.toggle("opacity-40", !hasSchema);
+    grid.classList.toggle("pointer-events-none", !hasSchema);
+    body.classList.toggle("overflow-hidden", !hasSchema);
+    body.classList.toggle("overflow-auto", hasSchema);
+
+    searchInput.disabled = !hasSchema;
+    searchInput.classList.toggle("opacity-50", !hasSchema);
+    searchInput.classList.toggle("cursor-not-allowed", !hasSchema);
+
+    filterBtn.disabled = !hasSchema;
 
     searchInput.value = state.pieceSearch ?? "";
     filterBtn.className =
@@ -682,10 +691,12 @@ function buildCenterColumn(state) {
   }
 
   searchInput.addEventListener("input", () => {
+    if (!state.getSelectedSchema()) return;
     state.actions.setPieceSearch(searchInput.value ?? "");
   });
 
   filterBtn.addEventListener("click", () => {
+    if (!state.getSelectedSchema()) return;
     openPieceFilterModal({
       filters: state.pieceFilters,
       onApply: (next) => state.actions.setPieceFilters(next),
@@ -728,6 +739,19 @@ function buildRightColumn(state) {
 
     body.innerHTML = "";
 
+    const costCard = el("div", "mt-4 rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4");
+
+    if (!schema) {
+      costCard.className = "rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4";
+      costCard.innerHTML = `
+        <div class="text-sm font-medium text-slate-100">No point set selected</div>
+        <div class="mt-1 text-sm text-slate-300">Create a point set first. Piece details will appear here.</div>
+      `;
+      createArmyBtn.disabled = true;
+      body.append(costCard);
+      return;
+    }
+
     const topCard = el("div", "rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4");
     const topRow = el("div", "flex items-start gap-4");
 
@@ -752,18 +776,6 @@ function buildRightColumn(state) {
 
     topRow.append(bigThumb, meta);
     topCard.appendChild(topRow);
-
-    const costCard = el("div", "mt-4 rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4");
-
-    if (!schema) {
-      costCard.innerHTML = `
-        <div class="text-sm font-medium text-slate-100">No point set selected</div>
-        <div class="mt-1 text-sm text-slate-300">Create a new point set to assign costs.</div>
-      `;
-      createArmyBtn.disabled = true;
-      body.append(topCard, costCard);
-      return;
-    }
 
     const currentCost = Number(schema.costs[piece.id] ?? 0);
     const remaining = calcRemaining(schema);
