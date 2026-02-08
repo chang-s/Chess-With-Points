@@ -24,10 +24,7 @@ async function initApp() {
 
 async function loadPiecesDataset() {
   try {
-    const response = await fetch(PIECES_DATA_URL);
-    if (!response.ok) throw new Error(`Failed to load pieces (${response.status})`);
-
-    const raw = await response.json();
+    const raw = await loadPiecesDatasetRaw();
     if (!Array.isArray(raw)) throw new Error("Invalid pieces dataset format");
 
     return raw
@@ -37,6 +34,28 @@ async function loadPiecesDataset() {
     console.error("Unable to load /data/pieces.json", error);
     showToast("Failed to load pieces data.", { variant: "error" });
     return [];
+  }
+}
+
+async function loadPiecesDatasetRaw() {
+  // file:// blocks fetch() in many browsers, so use the JSON module fallback.
+  if (window.location.protocol === "file:") {
+    const jsonModule = await importPiecesJsonModule();
+    return jsonModule?.default ?? jsonModule;
+  }
+
+  const response = await fetch(PIECES_DATA_URL);
+  if (!response.ok) throw new Error(`Failed to load pieces (${response.status})`);
+  return response.json();
+}
+
+async function importPiecesJsonModule() {
+  const path = "../../../data/pieces.json";
+
+  try {
+    return await import(path, { with: { type: "json" } });
+  } catch (firstError) {
+    return await import(path, { assert: { type: "json" } });
   }
 }
 
