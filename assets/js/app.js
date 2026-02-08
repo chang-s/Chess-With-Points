@@ -1,12 +1,57 @@
 import { openModal } from "./ui/modal.js";
 import { showToast } from "./ui/toast.js";
-import { PIECES, PIECE_SHEET, SPRITE_COLS, SPRITE_ROWS } from "./data/pieces.js";
+import { PIECES as SPRITE_PIECES, PIECE_SHEET, SPRITE_COLS, SPRITE_ROWS } from "./data/pieces.js";
 
 const btnCreate = document.getElementById("btnCreate");
 const btnJoin = document.getElementById("btnJoin");
 
-btnCreate?.addEventListener("click", () => openCreateOverlay());
-btnJoin?.addEventListener("click", () => openJoinModal());
+const PIECES_DATA_URL = new URL("../../../data/pieces.json", import.meta.url);
+
+let PIECES_DATASET = [];
+let PIECE_BY_ID = new Map();
+
+const SPRITE_BY_ID = new Map(SPRITE_PIECES.map((p) => [p.id, p.sprite]));
+
+initApp();
+
+async function initApp() {
+  PIECES_DATASET = await loadPiecesDataset();
+  PIECE_BY_ID = new Map(PIECES_DATASET.map((p) => [p.id, p]));
+
+  btnCreate?.addEventListener("click", () => openCreateOverlay());
+  btnJoin?.addEventListener("click", () => openJoinModal());
+}
+
+async function loadPiecesDataset() {
+  try {
+    const response = await fetch(PIECES_DATA_URL);
+    if (!response.ok) throw new Error(`Failed to load pieces (${response.status})`);
+
+    const raw = await response.json();
+    if (!Array.isArray(raw)) throw new Error("Invalid pieces dataset format");
+
+    return raw
+      .map(normalizePiece)
+      .filter((piece) => piece && piece.id);
+  } catch (error) {
+    console.error("Unable to load /data/pieces.json", error);
+    showToast("Failed to load pieces data.", { variant: "error" });
+    return [];
+  }
+}
+
+function normalizePiece(raw) {
+  return {
+    ...raw,
+    id: String(raw?.id ?? "").trim(),
+    name: String(raw?.name ?? "").trim(),
+    sourcePiece: String(raw?.sourcePiece ?? "").trim(),
+    ranks: Array.isArray(raw?.ranks) ? raw.ranks.map((x) => String(x).toLowerCase()) : [],
+    abilities: Array.isArray(raw?.abilities) ? raw.abilities.map((x) => String(x).toLowerCase()) : [],
+    description: typeof raw?.description === "string" ? raw.description.trim() : "",
+    moveRules: typeof raw?.moveRules === "string" ? raw.moveRules.trim() : "",
+  };
+}
 
 /* -----------------------------
    Join modal (unchanged-ish)
@@ -83,47 +128,16 @@ function openJoinModal() {
 const POINT_TOTAL_OPTIONS = [40, 80, 120, 160, 400];
 const SCHEMAS_PER_PAGE = 6;
 const STORAGE_KEY = "cwp_point_schemas_v2";
-const BASE_FILTER_OPTIONS = ["pawn", "knight", "bishop", "rook", "queen", "king"];
-const TYPE_FILTER_OPTIONS = ["commoner", "noble"];
-const PIECE_BASE_MAP = {
-  pawn: "pawn",
-  squire: "pawn",
-  "shield-bearer": "pawn",
-  peasant: "pawn",
-  adept: "pawn",
-  mule: "pawn",
-  "wild-stallion": "pawn",
-
-  knight: "knight",
-  "clergy-riders": "knight",
-  "lance-rider": "knight",
-  pegasus: "knight",
-
-  bishop: "bishop",
-  "high-priest": "bishop",
-  "corrupted-abbot": "bishop",
-  "arcane-priest": "bishop",
-
-  rook: "rook",
-  "damaged-chariot": "rook",
-  "fast-chariot": "rook",
-  "armored-chariot": "rook",
-
-  queen: "queen",
-  "arcane-tower": "queen",
-  sorceress: "queen",
-  "joan-of-arc": "queen",
-  "queen-of-air": "queen",
-  "queen-of-darkness": "queen",
-
-  king: "king",
-  "the-old-queen": "king",
-};
 
 function openCreateOverlay() {
+  if (PIECES_DATASET.length === 0) {
+    showToast("No pieces data available.", { variant: "error" });
+    return;
+  }
+
   const state = createState(loadSchemas(), {
     selectedSchemaId: null,
-    selectedPieceId: PIECES[0].id,
+    selectedPieceId: PIECES_DATASET[0]?.id ?? null,
     schemaPage: 1,
     pieceSearch: "",
     pieceFilters: { types: [], bases: [] },
@@ -607,14 +621,13 @@ function buildCenterColumn(state) {
 
     grid.innerHTML = "";
 
-    const visiblePieces = PIECES.filter((p) => {
-      const typeValue = String(p.type ?? "").toLowerCase();
+    const visiblePieces = PIECES_DATASET.filter((p) => {
+      const ranks = Array.isArray(p.ranks) ? p.ranks : [];
       const baseValue = getBasePieceId(p);
+      const searchHaystack = `${p.name} ${baseValue} ${(p.ranks ?? []).join(" ")}`.toLowerCase();
 
-      const matchesSearch =
-        !searchQuery ||
-        `${p.name} ${p.type} ${toTitle(baseValue)}`.toLowerCase().includes(searchQuery);
-      const matchesType = activeTypeFilters.size === 0 || activeTypeFilters.has(typeValue);
+      const matchesSearch = !searchQuery || searchHaystack.includes(searchQuery);
+      const matchesType = activeTypeFilters.size === 0 || ranks.some((rank) => activeTypeFilters.has(String(rank).toLowerCase()));
       const matchesBase = activeBaseFilters.size === 0 || activeBaseFilters.has(baseValue);
 
       return matchesSearch && matchesType && matchesBase;
@@ -649,19 +662,24 @@ function buildCenterColumn(state) {
               ? "border-sky-100 bg-sky-500/16 ring-2 ring-sky-200/55 shadow-[0_0_0_1px_rgba(125,211,252,0.35)] hover:bg-sky-500/22 focus-visible:ring-sky-200/80"
               : "border-white/10 bg-white/[0.02] hover:bg-white/[0.06] focus-visible:ring-sky-200/60"));
 
-      const thumb = el("div", "mx-auto h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-full border-2 border-white/10 bg-white/[0.02]");
+      const thumb = el("div", "mx-auto h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-full border-2 border-white/10 bg-white/[0.02] flex items-center justify-center text-xs font-semibold text-slate-200");
+      const sprite = SPRITE_BY_ID.get(p.id);
       if (needsCost) {
         thumb.classList.remove("border-white/10", "bg-white/[0.02]");
         thumb.classList.add("border-rose-100/50", "bg-rose-500/20");
       }
       thumb.classList.add("transition-all", "duration-200", "ease-in-out", "group-hover:scale-[1.04]");
-      thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
-      thumb.style.backgroundRepeat = "no-repeat";
-      thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
-      thumb.style.backgroundPosition = spritePos(p.sprite.c, p.sprite.r);
+      if (sprite) {
+        thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
+        thumb.style.backgroundRepeat = "no-repeat";
+        thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
+        thumb.style.backgroundPosition = spritePos(sprite.c, sprite.r);
+      } else {
+        thumb.textContent = String(p.abbrev ?? p.name ?? "?").slice(0, 2).toUpperCase();
+      }
 
-      const typeIcon = p.type === "Noble" ? "👑" : "🌱";
-      const typeTip = p.type;
+      const typeTip = formatRankLabel((p.ranks ?? [])[0]);
+      const typeIcon = String((p.ranks ?? [])[0] ?? "").toLowerCase() === "noble" ? "👑" : "🌱";
 
       const name = el("div", "mt-3 text-center text-sm font-medium leading-snug text-slate-100");
       name.textContent = p.name;
@@ -735,7 +753,7 @@ function buildRightColumn(state) {
 
   function render() {
     const schema = state.getSelectedSchema();
-    const piece = PIECES.find((p) => p.id === state.selectedPieceId) ?? PIECES[0];
+    const piece = PIECE_BY_ID.get(state.selectedPieceId) ?? PIECES_DATASET[0] ?? null;
 
     body.innerHTML = "";
 
@@ -752,27 +770,31 @@ function buildRightColumn(state) {
       return;
     }
 
+    if (!piece) {
+      costCard.innerHTML = `
+        <div class="text-sm font-medium text-slate-100">No piece selected</div>
+      `;
+      createArmyBtn.disabled = true;
+      body.append(costCard);
+      return;
+    }
+
     const topCard = el("div", "rounded-2xl border-2 border-white/10 bg-white/[0.02] p-4");
     const topRow = el("div", "flex items-start gap-4");
 
-    const bigThumb = el("div", "h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-2xl border-2 border-white/10 bg-white/[0.02]");
-    bigThumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
-    bigThumb.style.backgroundRepeat = "no-repeat";
-    bigThumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
-    bigThumb.style.backgroundPosition = spritePos(piece.sprite.c, piece.sprite.r);
+    const bigThumb = el("div", "h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-2xl border-2 border-white/10 bg-white/[0.02] flex items-center justify-center text-sm font-semibold text-slate-200");
+    const sprite = SPRITE_BY_ID.get(piece.id);
+    if (sprite) {
+      bigThumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
+      bigThumb.style.backgroundRepeat = "no-repeat";
+      bigThumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
+      bigThumb.style.backgroundPosition = spritePos(sprite.c, sprite.r);
+    } else {
+      bigThumb.textContent = String(piece.abbrev ?? piece.name ?? "?").slice(0, 2).toUpperCase();
+    }
 
-    const typeIcon = piece.type === "Noble" ? "👑" : "🌱";
     const meta = el("div", "min-w-0 flex-1");
-    meta.innerHTML = `
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="text-base font-semibold text-slate-100">${escapeHtml(piece.name)}</div>
-          <div class="mt-1 text-sm text-slate-300">${escapeHtml(piece.type)}</div>
-        </div>
-        <span class="cwp-tooltip" data-tip="${escapeHtml(piece.type)}" aria-label="${escapeHtml(piece.type)}">${typeIcon}</span>
-      </div>
-      <div class="mt-3 text-xs text-slate-400">Use the cost field below. Remaining updates live.</div>
-    `;
+    renderPieceDetails(meta, piece);
 
     topRow.append(bigThumb, meta);
     topCard.appendChild(topRow);
@@ -820,7 +842,7 @@ function buildRightColumn(state) {
     costWrap.append(costLabel, costInput);
 
     const note = el("p", "mt-3 text-sm text-slate-300");
-    note.textContent = "Set every piece above 0 (King can be 0). Create army unlocks when Remaining hits 0.";
+    note.textContent = "Set every piece above 0. Create army unlocks when Remaining hits 0.";
 
     row.append(remainingBox, costWrap);
     costCard.append(row, note);
@@ -1031,6 +1053,8 @@ function openDeleteConfirmModal({ onConfirm }) {
 }
 
 function openPieceFilterModal({ filters, onApply }) {
+  const typeOptions = getRankOptions();
+  const baseOptions = getBaseOptions();
   const nextTypes = new Set((filters?.types ?? []).map((v) => String(v).toLowerCase()));
   const nextBases = new Set((filters?.bases ?? []).map((v) => String(v).toLowerCase()));
 
@@ -1039,8 +1063,8 @@ function openPieceFilterModal({ filters, onApply }) {
   sectionType.appendChild(el("div", "text-xs font-medium uppercase tracking-wide text-slate-400", "Type"));
   const typeGrid = el("div", "grid grid-cols-2 gap-2");
 
-  for (const type of TYPE_FILTER_OPTIONS) {
-    const row = filterToggleRow(toTitle(type), nextTypes.has(type), (checked) => {
+  for (const type of typeOptions) {
+    const row = filterToggleRow(formatRankLabel(type), nextTypes.has(type), (checked) => {
       if (checked) nextTypes.add(type);
       else nextTypes.delete(type);
     });
@@ -1051,7 +1075,7 @@ function openPieceFilterModal({ filters, onApply }) {
   const sectionBase = el("div", "mt-4 space-y-2");
   sectionBase.appendChild(el("div", "text-xs font-medium uppercase tracking-wide text-slate-400", "Base piece"));
   const baseGrid = el("div", "grid grid-cols-2 gap-2");
-  for (const base of BASE_FILTER_OPTIONS) {
+  for (const base of baseOptions) {
     const row = filterToggleRow(toTitle(base), nextBases.has(base), (checked) => {
       if (checked) nextBases.add(base);
       else nextBases.delete(base);
@@ -1154,11 +1178,11 @@ function calcRemaining(schema) {
 }
 
 function hasAllPieceCosts(schema) {
-  return PIECES.every((p) => !pieceRequiresPositiveCost(p) || Number(schema.costs?.[p.id]) > 0);
+  return PIECES_DATASET.every((p) => !pieceRequiresPositiveCost(p) || Number(schema.costs?.[p.id]) > 0);
 }
 
 function pieceRequiresPositiveCost(piece) {
-  return String(piece?.id ?? "") !== "king";
+  return !!piece;
 }
 
 function isNearZero(value) {
@@ -1187,8 +1211,105 @@ function toTitle(value) {
 }
 
 function getBasePieceId(piece) {
-  const id = String(piece?.id ?? "").toLowerCase();
-  return PIECE_BASE_MAP[id] ?? id;
+  const fromSource = String(piece?.sourcePiece ?? "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+  if (fromSource) return fromSource;
+  return String(piece?.id ?? "").trim().toLowerCase();
+}
+
+function getRankOptions() {
+  return [...new Set(PIECES_DATASET.flatMap((piece) => piece.ranks ?? []))].filter(Boolean);
+}
+
+function getBaseOptions() {
+  return [...new Set(PIECES_DATASET.map((piece) => getBasePieceId(piece)).filter(Boolean))];
+}
+
+function formatRankLabel(rank) {
+  const normalized = String(rank ?? "").toLowerCase();
+  if (normalized === "noble") return "Noble";
+  if (normalized === "commoner") return "Commoner";
+  return toTitle(normalized || "Rank");
+}
+
+function renderPieceDetails(container, piece) {
+  container.innerHTML = "";
+
+  const heading = el("div", "text-base font-semibold text-slate-100");
+  heading.textContent = piece.name;
+  container.appendChild(heading);
+
+  const ranks = renderRanks(piece.ranks ?? []);
+  if (ranks) {
+    const row = el("div", "mt-3");
+    row.appendChild(el("div", "text-[11px] uppercase tracking-wide text-slate-400", "Ranks"));
+    row.appendChild(ranks);
+    container.appendChild(row);
+  }
+
+  const abilities = renderAbilities(piece.abilities ?? []);
+  if (abilities) {
+    const row = el("div", "mt-3");
+    row.appendChild(el("div", "text-[11px] uppercase tracking-wide text-slate-400", "Abilities"));
+    row.appendChild(abilities);
+    container.appendChild(row);
+  }
+
+  if (piece.description) {
+    const section = el("div", "mt-3");
+    section.appendChild(el("div", "text-[11px] uppercase tracking-wide text-slate-400", "Description"));
+    section.appendChild(el("p", "mt-1 text-sm text-slate-300", piece.description));
+    container.appendChild(section);
+  }
+
+  if (piece.moveRules) {
+    const section = el("div", "mt-3");
+    section.appendChild(el("div", "text-[11px] uppercase tracking-wide text-slate-400", "Move rules"));
+    section.appendChild(el("p", "mt-1 text-sm text-slate-300", piece.moveRules));
+    container.appendChild(section);
+  }
+}
+
+function renderRanks(ranks) {
+  if (!Array.isArray(ranks) || ranks.length === 0) return null;
+  const wrap = el("div", "mt-1 flex flex-wrap items-center gap-2");
+
+  for (const rank of ranks) {
+    const normalized = String(rank ?? "").toLowerCase();
+    const badge = el(
+      "span",
+      "inline-flex items-center gap-1 rounded-lg border-2 px-2 py-1 text-xs " +
+        (normalized === "noble"
+          ? "border-sky-200/35 bg-sky-500/10 text-sky-100"
+          : "border-white/12 bg-white/[0.03] text-slate-200")
+    );
+    const icon = normalized === "noble" ? "👑" : "🧍";
+    badge.textContent = `${icon} ${formatRankLabel(normalized)}`;
+    wrap.appendChild(badge);
+  }
+
+  return wrap;
+}
+
+function renderAbilities(abilities) {
+  if (!Array.isArray(abilities) || abilities.length === 0) return null;
+  const wrap = el("div", "mt-1 flex flex-wrap items-center gap-2");
+
+  for (const ability of abilities) {
+    const label = String(ability ?? "").trim().toLowerCase();
+    if (!label) continue;
+    const pill = el(
+      "span",
+      "inline-flex items-center rounded-full border-2 border-white/12 bg-white/[0.03] px-2.5 py-1 text-[11px] uppercase tracking-wide text-slate-200"
+    );
+    pill.textContent = label;
+    wrap.appendChild(pill);
+  }
+
+  return wrap.childElementCount > 0 ? wrap : null;
 }
 
 function cryptoId() {
