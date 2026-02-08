@@ -146,16 +146,17 @@ function openCreateOverlay() {
 function openCreatePage({ title, content, initialFocusSelector, onClose }) {
   const previouslyFocused = document.activeElement;
   const lobbyMain = document.querySelector("main");
+  let closing = false;
 
-  const page = el("section", "fixed inset-0 z-40 bg-slate-950 text-slate-100");
-
-  const header = el("div", "flex items-center justify-between border-b border-white/10 px-4 sm:px-6 py-4");
-  const titleEl = el("h2", "text-base font-semibold tracking-tight text-slate-100", title);
-  const closeBtn = button(
-    "Back",
-    "button",
-    "rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60"
+  const page = el(
+    "section",
+    "fixed inset-0 z-40 bg-slate-950 text-slate-100 opacity-0 translate-y-2 scale-[0.995] transition-all duration-300 ease-out"
   );
+
+  const header = el("div", "relative border-b border-white/10 px-4 sm:px-6 py-4");
+  const titleEl = el("h2", "text-center text-lg sm:text-xl font-semibold tracking-wide text-sky-100", "Point Distribution");
+  const closeBtn = iconButton("Back", backIcon(), "focus-visible:ring-sky-200/60");
+  closeBtn.className += " absolute left-4 sm:left-6 top-1/2 -translate-y-1/2";
 
   const body = el("div", "h-[calc(100%-65px)]");
   body.appendChild(content);
@@ -167,15 +168,36 @@ function openCreatePage({ title, content, initialFocusSelector, onClose }) {
   document.body.style.overflow = "hidden";
   document.body.appendChild(page);
 
-  function close(reason = "back") {
+  function finalizeClose(reason) {
     page.remove();
     lobbyMain?.classList.remove("hidden");
     document.body.style.overflow = "";
+    window.removeEventListener("keydown", onEsc, true);
     if (typeof onClose === "function") onClose(reason);
     if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
   }
 
+  function close(reason = "back") {
+    if (closing) return;
+    closing = true;
+    page.classList.add("opacity-0", "translate-y-2", "scale-[0.995]");
+    page.classList.remove("opacity-100", "translate-y-0", "scale-100");
+    window.setTimeout(() => finalizeClose(reason), 260);
+  }
+
+  function onEsc(e) {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    close("escape");
+  }
+
   closeBtn.addEventListener("click", () => close("button"));
+  window.addEventListener("keydown", onEsc, true);
+
+  requestAnimationFrame(() => {
+    page.classList.remove("opacity-0", "translate-y-2", "scale-[0.995]");
+    page.classList.add("opacity-100", "translate-y-0", "scale-100");
+  });
 
   queueMicrotask(() => {
     const initial = initialFocusSelector ? page.querySelector(initialFocusSelector) : null;
@@ -311,6 +333,9 @@ function buildLeftColumn(state) {
         const renameBtn = iconButton("Rename", pencilIcon(), "focus-visible:ring-sky-200/70");
         const dupBtn = iconButton("Duplicate", duplicateIcon(), "focus-visible:ring-sky-200/70");
         const delBtn = iconButton("Delete", trashIcon(), "focus-visible:ring-rose-200/60");
+        setTooltip(renameBtn, "Rename");
+        setTooltip(dupBtn, "Duplicate");
+        setTooltip(delBtn, "Delete");
 
         // Editing state local to row
         let editing = false;
@@ -362,10 +387,12 @@ function buildLeftColumn(state) {
 
         delBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          const ok = confirm(`Delete "${s.name}"?`);
-          if (!ok) return;
-          state.actions.deleteSchema(s.id);
-          showToast("Deleted point set.", { variant: "info" });
+          openDeleteConfirmModal({
+            onConfirm: () => {
+              state.actions.deleteSchema(s.id);
+              showToast("Deleted point set.", { variant: "info" });
+            },
+          });
         });
 
         actions.append(renameBtn, dupBtn, delBtn);
@@ -806,6 +833,38 @@ function pageButton(label, disabled = false, active = false) {
   return b;
 }
 
+function openDeleteConfirmModal({ onConfirm }) {
+  const content = el("div");
+  content.appendChild(el("p", "text-sm text-slate-300", "Are you sure you want to delete this?"));
+
+  const actions = el("div", "mt-5 flex items-center justify-end gap-2");
+  const cancelBtn = button(
+    "Cancel",
+    "button",
+    "rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60"
+  );
+  const deleteBtn = button(
+    "Delete",
+    "button",
+    "rounded-xl border-2 border-rose-300/40 bg-rose-500/20 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/70"
+  );
+
+  actions.append(cancelBtn, deleteBtn);
+  content.appendChild(actions);
+
+  const modal = openModal({
+    title: "Confirm delete",
+    content,
+    initialFocusSelector: "button",
+  });
+
+  cancelBtn.addEventListener("click", () => modal.close("cancel"));
+  deleteBtn.addEventListener("click", () => {
+    modal.close("confirm");
+    onConfirm?.();
+  });
+}
+
 function loadSchemas() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -937,6 +996,11 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
+function setTooltip(elm, text) {
+  elm.classList.add("cwp-tooltip");
+  elm.dataset.tip = text;
+}
+
 /* -----------------------------
    Icons (tiny, clean)
 ------------------------------ */
@@ -974,6 +1038,14 @@ function trashIcon() {
       <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       <path d="M6 7l1 14h10l1-14" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
       <path d="M9 7V4h6v3" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  `;
+}
+
+function backIcon() {
+  return `
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   `;
 }
