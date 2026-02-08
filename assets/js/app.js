@@ -1,4 +1,4 @@
-import { openModal, openOverlay } from "./ui/modal.js";
+import { openModal } from "./ui/modal.js";
 import { showToast } from "./ui/toast.js";
 import { PIECES, PIECE_SHEET, SPRITE_COLS, SPRITE_ROWS } from "./data/pieces.js";
 
@@ -124,7 +124,7 @@ function openCreateOverlay() {
   center.appendChild(centerUI.root);
   right.appendChild(rightUI.root);
 
-  const overlay = openOverlay({
+  const page = openCreatePage({
     title: "Create game",
     content,
     initialFocusSelector: "#schemaCreateBtn",
@@ -138,7 +138,49 @@ function openCreateOverlay() {
     rightUI.render();
   });
 
-  state.actions.setOverlayClose((reason) => overlay.close(reason));
+  state.actions.setOverlayClose((reason) => page.close(reason));
+}
+
+function openCreatePage({ title, content, initialFocusSelector, onClose }) {
+  const previouslyFocused = document.activeElement;
+  const lobbyMain = document.querySelector("main");
+
+  const page = el("section", "fixed inset-0 z-40 bg-slate-950 text-slate-100");
+
+  const header = el("div", "flex items-center justify-between border-b border-white/10 px-4 sm:px-6 py-4");
+  const titleEl = el("h2", "text-base font-semibold tracking-tight text-slate-100", title);
+  const closeBtn = button(
+    "Back",
+    "button",
+    "rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60"
+  );
+
+  const body = el("div", "h-[calc(100%-65px)]");
+  body.appendChild(content);
+
+  header.append(titleEl, closeBtn);
+  page.append(header, body);
+
+  lobbyMain?.classList.add("hidden");
+  document.body.style.overflow = "hidden";
+  document.body.appendChild(page);
+
+  function close(reason = "back") {
+    page.remove();
+    lobbyMain?.classList.remove("hidden");
+    document.body.style.overflow = "";
+    if (typeof onClose === "function") onClose(reason);
+    if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
+  }
+
+  closeBtn.addEventListener("click", () => close("button"));
+
+  queueMicrotask(() => {
+    const initial = initialFocusSelector ? page.querySelector(initialFocusSelector) : null;
+    if (initial && typeof initial.focus === "function") initial.focus();
+  });
+
+  return { close, page };
 }
 
 /* -----------------------------
@@ -158,7 +200,7 @@ function buildLeftColumn(state) {
   const pointsSelect = document.createElement("select");
   pointsSelect.id = "pointsTotalSelect";
   pointsSelect.className =
-    "w-full rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-200/70";
+    "w-full rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 pr-11 py-3 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-200/70";
   pointsSelect.innerHTML = POINT_TOTAL_OPTIONS.map(
     (n) => `<option value="${n}">${n} points</option>`
   ).join("");
@@ -168,7 +210,7 @@ function buildLeftColumn(state) {
   const createBtn = button(
     "Create new",
     "button",
-    "mt-4 w-full rounded-xl border-2 border-sky-300/25 bg-sky-500/12 px-4 py-3 text-sm font-medium text-slate-100 transition hover:bg-sky-500/16 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/70"
+    "mt-4 w-full rounded-xl border-2 border-sky-200/45 bg-sky-500/35 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-sky-500/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/70"
   );
   createBtn.id = "schemaCreateBtn";
 
@@ -381,13 +423,10 @@ function buildLeftColumn(state) {
 function buildCenterColumn(state) {
   const root = el("div", "h-full min-h-0 flex flex-col");
 
-  const header = el(
-    "div",
-    "flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 px-4 sm:px-6 py-4"
-  );
+  const header = el("div", "border-b border-white/10 px-4 sm:px-6 py-4");
   header.append(
     el("div", "text-sm font-medium text-slate-100", "Chess pieces"),
-    el("div", "text-xs text-slate-400", "Pick a piece to edit cost.")
+    el("div", "mt-1 text-xs text-slate-400", "Pick a piece to edit cost.")
   );
 
   const body = el("div", "relative min-h-0 flex-1 overflow-auto p-4 sm:p-6");
