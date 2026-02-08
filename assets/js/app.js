@@ -204,7 +204,7 @@ function buildLeftColumn(state) {
       for (const s of state.schemas) {
         const active = s.id === state.selectedSchemaId;
         const remaining = calcRemaining(s);
-        const over = remaining < 0;
+        const over = remaining < -0.001;
 
         const row = el(
           "div",
@@ -249,7 +249,7 @@ function buildLeftColumn(state) {
           ? `<span class="cwp-tooltip" data-tip="Over budget" aria-label="Over budget">⚠️</span>`
           : "";
 
-        badge.innerHTML = `${warn}<span class="inline-flex items-center gap-2">${dot.outerHTML}<span>${remaining} left</span></span>`;
+        badge.innerHTML = `${warn}<span class="inline-flex items-center gap-2">${dot.outerHTML}<span>${formatPoints(remaining)} left</span></span>`;
 
         // Actions: rename, duplicate, delete
         const actions = el("div", "flex items-center gap-1");
@@ -351,7 +351,7 @@ function buildLeftColumn(state) {
       <div class="flex items-center justify-between">
         <span class="text-slate-300">Remaining</span>
         <span class="font-medium ${remaining === 0 ? "text-sky-200" : remaining < 0 ? "text-rose-200" : "text-slate-100"}">
-          ${remaining}
+          ${formatPoints(remaining)}
         </span>
       </div>
     `;
@@ -430,15 +430,21 @@ function buildCenterColumn(state) {
 
     for (const p of PIECES) {
       const isSelected = p.id === selectedId;
-      const cost = schema ? (schema.costs[p.id] ?? null) : null;
+      const cost = schema ? Number(schema.costs[p.id]) : null;
+      const normalizedCost = Number.isFinite(cost) ? cost : 0;
+      const needsCost = !!schema && normalizedCost <= 0;
 
       const card = document.createElement("button");
       card.type = "button";
       card.className =
         "group relative rounded-2xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
-        (isSelected
-          ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
-          : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60");
+        (needsCost
+          ? (isSelected
+              ? "border-rose-300/45 bg-rose-500/10 focus-visible:ring-rose-200/70"
+              : "border-rose-300/30 bg-rose-500/5 hover:bg-rose-500/10 focus-visible:ring-rose-200/60")
+          : (isSelected
+              ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
+              : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60"));
 
       const top = el("div", "flex items-start gap-3");
 
@@ -470,9 +476,12 @@ function buildCenterColumn(state) {
       const bottom = el("div", "mt-3 flex items-center justify-end");
       const costBadge = el(
         "div",
-        "inline-flex items-center rounded-lg border-2 border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-200"
+        "inline-flex items-center rounded-lg border-2 px-2 py-1 text-xs " +
+          (needsCost
+            ? "border-rose-300/30 bg-rose-500/10 text-rose-100"
+            : "border-white/10 bg-white/[0.03] text-slate-200")
       );
-      costBadge.textContent = cost == null ? "Cost: -" : `Cost: ${cost}`;
+      costBadge.textContent = `Cost: ${formatPoints(normalizedCost)}`;
       bottom.appendChild(costBadge);
 
       card.append(top, bottom);
@@ -557,7 +566,8 @@ function buildRightColumn(state) {
 
     const currentCost = Number(schema.costs[piece.id] ?? 0);
     const remaining = calcRemaining(schema);
-    const over = remaining < 0;
+    const over = remaining < -0.001;
+    const allPiecesPriced = hasAllPieceCosts(schema);
 
     // Remaining (left) + small cost input (right)
     const row = el("div", "flex items-center justify-between gap-4");
@@ -573,7 +583,7 @@ function buildRightColumn(state) {
     );
     remainingBox.innerHTML = `
       <span class="text-slate-300">Remaining</span>
-      <span class="font-semibold">${remaining}</span>
+      <span class="font-semibold">${formatPoints(remaining)}</span>
       ${over ? `<span class="cwp-tooltip" data-tip="Over budget" aria-label="Over budget">⚠️</span>` : ""}
     `;
 
@@ -585,7 +595,7 @@ function buildRightColumn(state) {
     costInput.id = "costInput";
     costInput.type = "number";
     costInput.min = "0";
-    costInput.step = "1";
+    costInput.step = "0.1";
     costInput.inputMode = "numeric";
     costInput.value = String(currentCost);
     costInput.className =
@@ -594,18 +604,18 @@ function buildRightColumn(state) {
     costWrap.append(costLabel, costInput);
 
     const note = el("p", "mt-3 text-sm text-slate-300");
-    note.textContent = "When Remaining hits 0, Create army becomes available.";
+    note.textContent = "Set every piece above 0. Create army unlocks when Remaining hits 0.";
 
     row.append(remainingBox, costWrap);
     costCard.append(row, note);
 
-    createArmyBtn.disabled = remaining !== 0;
+    createArmyBtn.disabled = !allPiecesPriced || !isNearZero(remaining);
 
     costInput.addEventListener("input", () => {
       const cursorStart = costInput.selectionStart;
       const cursorEnd = costInput.selectionEnd;
       const raw = Number(costInput.value);
-      const next = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+      const next = Number.isFinite(raw) ? roundToTwo(Math.max(0, raw)) : 0;
       schema.costs[piece.id] = next;
       state.actions.touch();
 
@@ -627,7 +637,12 @@ function buildRightColumn(state) {
     if (!schema) return;
 
     const remaining = calcRemaining(schema);
-    if (remaining !== 0) {
+    if (!hasAllPieceCosts(schema)) {
+      showToast("Every piece needs a cost above 0.", { variant: "error" });
+      return;
+    }
+
+    if (!isNearZero(remaining)) {
       showToast("Fill the point total before creating an army.", { variant: "error" });
       return;
     }
@@ -739,7 +754,25 @@ function duplicateSchema(schema) {
 function calcRemaining(schema) {
   const total = Number(schema.totalPoints ?? 40);
   const sum = Object.values(schema.costs ?? {}).reduce((acc, v) => acc + (Number(v) || 0), 0);
-  return total - sum;
+  return roundToTwo(total - sum);
+}
+
+function hasAllPieceCosts(schema) {
+  return PIECES.every((p) => Number(schema.costs?.[p.id]) > 0);
+}
+
+function isNearZero(value) {
+  return Math.abs(Number(value) || 0) < 0.001;
+}
+
+function roundToTwo(value) {
+  return Math.round(((Number(value) || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function formatPoints(value) {
+  const rounded = roundToTwo(value);
+  if (Number.isInteger(rounded)) return String(rounded);
+  return rounded.toFixed(2).replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
 }
 
 function cryptoId() {
