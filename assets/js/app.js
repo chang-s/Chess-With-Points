@@ -640,20 +640,21 @@ function buildCenterColumn(state) {
       const card = document.createElement("button");
       card.type = "button";
       card.className =
-        "group relative flex flex-col items-center rounded-2xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
+        "group relative flex flex-col items-center rounded-2xl border-2 p-3 text-left transform-gpu transition-all duration-200 ease-in-out hover:-translate-y-[1px] hover:scale-[1.015] hover:shadow-[0_14px_34px_rgba(0,0,0,0.38)] focus:outline-none focus-visible:ring-2 " +
         (needsCost
           ? (isSelected
-              ? "border-rose-200/70 bg-rose-500/45 text-rose-50 focus-visible:ring-rose-200/70"
-              : "border-rose-200/60 bg-rose-500/35 text-rose-50 hover:bg-rose-500/42 focus-visible:ring-rose-200/60")
+              ? "border-rose-100 bg-rose-500/45 text-rose-50 ring-2 ring-rose-200/60 shadow-[0_0_0_1px_rgba(251,113,133,0.35)] hover:bg-rose-500/50 focus-visible:ring-rose-200/80"
+              : "border-rose-200/60 bg-rose-500/35 text-rose-50 hover:bg-rose-500/45 focus-visible:ring-rose-200/60")
           : (isSelected
-              ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
-              : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60"));
+              ? "border-sky-100 bg-sky-500/16 ring-2 ring-sky-200/55 shadow-[0_0_0_1px_rgba(125,211,252,0.35)] hover:bg-sky-500/22 focus-visible:ring-sky-200/80"
+              : "border-white/10 bg-white/[0.02] hover:bg-white/[0.06] focus-visible:ring-sky-200/60"));
 
       const thumb = el("div", "mx-auto h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-full border-2 border-white/10 bg-white/[0.02]");
       if (needsCost) {
         thumb.classList.remove("border-white/10", "bg-white/[0.02]");
         thumb.classList.add("border-rose-100/50", "bg-rose-500/20");
       }
+      thumb.classList.add("transition-all", "duration-200", "ease-in-out", "group-hover:scale-[1.04]");
       thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
       thumb.style.backgroundRepeat = "no-repeat";
       thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
@@ -777,6 +778,7 @@ function buildRightColumn(state) {
     topCard.appendChild(topRow);
 
     const currentCost = Number(schema.costs[piece.id] ?? 0);
+    const costInvalid = pieceRequiresPositiveCost(piece) && currentCost <= 0;
     const remaining = calcRemaining(schema);
     const over = remaining < -0.001;
     const allPiecesPriced = hasAllPieceCosts(schema);
@@ -810,7 +812,10 @@ function buildRightColumn(state) {
     costInput.autocomplete = "off";
     costInput.value = formatPoints(currentCost);
     costInput.className =
-      "w-[88px] rounded-xl border-2 border-white/12 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 outline-none transition focus-visible:ring-2 focus-visible:ring-sky-200/60";
+      "w-[88px] rounded-xl border-2 px-3 py-2 text-sm text-slate-100 outline-none transition focus-visible:ring-2 " +
+      (costInvalid
+        ? "border-rose-300/55 bg-rose-500/18 focus-visible:ring-rose-200/70"
+        : "border-white/12 bg-white/[0.03] focus-visible:ring-sky-200/60");
 
     costWrap.append(costLabel, costInput);
 
