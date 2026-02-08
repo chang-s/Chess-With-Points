@@ -1,37 +1,54 @@
-const FOCUSABLE = [
+const FOCUSABLE_SELECTOR = [
   "a[href]",
+  "area[href]",
   "button:not([disabled])",
-  "input:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
   "select:not([disabled])",
   "textarea:not([disabled])",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
-export function trapFocus(containerEl) {
-  const focusables = () => Array.from(containerEl.querySelectorAll(FOCUSABLE));
-  const first = () => focusables()[0];
-  const last = () => focusables()[focusables().length - 1];
+export function createFocusTrap(container) {
+  if (!container) throw new Error("Focus trap requires a container element.");
+
+  function getFocusable() {
+    return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR))
+      .filter((el) => el.offsetParent !== null || el === document.activeElement);
+  }
 
   function onKeyDown(e) {
     if (e.key !== "Tab") return;
 
-    const items = focusables();
-    if (!items.length) return;
+    const focusable = getFocusable();
+    if (focusable.length === 0) return;
 
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
     const active = document.activeElement;
-    const isShift = e.shiftKey;
 
-    if (!isShift && active === items[items.length - 1]) {
-      e.preventDefault();
-      items[0].focus();
-    } else if (isShift && active === items[0]) {
-      e.preventDefault();
-      items[items.length - 1].focus();
+    if (e.shiftKey) {
+      if (active === first || !container.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
   }
 
-  containerEl.addEventListener("keydown", onKeyDown);
-  requestAnimationFrame(() => first()?.focus());
-
-  return () => containerEl.removeEventListener("keydown", onKeyDown);
+  return {
+    activate() {
+      container.addEventListener("keydown", onKeyDown);
+    },
+    deactivate() {
+      container.removeEventListener("keydown", onKeyDown);
+    },
+    focusFirst() {
+      const focusable = getFocusable();
+      (focusable[0] ?? container).focus();
+    },
+  };
 }

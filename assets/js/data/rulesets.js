@@ -1,20 +1,24 @@
 export const RULESETS = [
   {
-    id: "starter-20",
-    name: "Starter Skirmish (20 pts)",
+    id: "20",
+    label: "20 points",
     budget: 20,
-    description: "Quick match, small armies. Great for testing and demos.",
+    description: "Fast draft, lean armies. Great for quick games and sharp decisions.",
   },
   {
-    id: "standard-30",
-    name: "Standard Battle (30 pts)",
+    id: "30",
+    label: "30 points",
     budget: 30,
-    description: "Balanced armies. Good default for most games.",
+    description: "Balanced budget. Flexible builds with room for a signature piece.",
   },
   {
-    id: "grand-40",
-    name: "Grand Clash (40 pts)",
+    id: "40",
+    label: "40 points",
     budget: 40,
-    description: "Bigger armies with more room for special pieces.",
+    description: "Big brain mode. Wider compositions and more tactical variety.",
   },
 ];
+
+export function getRulesetById(id) {
+  return RULESETS.find((r) => r.id === String(id)) ?? RULESETS[0];
+}

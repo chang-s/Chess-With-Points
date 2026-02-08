@@ -1,113 +1,141 @@
-import { trapFocus } from "./focusTrap.js";
+import { createFocusTrap } from "./focusTrap.js";
 
+function ensureModalRoot() {
+  const root = document.getElementById("modal-root");
+  if (!root) {
+    const el = document.createElement("div");
+    el.id = "modal-root";
+    document.body.appendChild(el);
+    return el;
+  }
+  return root;
+}
+
+/**
+ * Creates and opens a modal.
+ * - closes on Escape
+ * - closes on backdrop click
+ * - traps focus
+ * - restores focus to opener on close
+ */
 export function openModal({
   title,
-  subtitle,
-  contentEl,
-  primaryText = "Confirm",
-  secondaryText = "Cancel",
-  onPrimary,
-  onSecondary,
-  primaryDisabled = false,
+  content, // HTMLElement
+  initialFocusSelector,
+  onClose,
 }) {
-  const root = document.getElementById("modalRoot");
-  if (!root) throw new Error("modalRoot not found");
+  const root = ensureModalRoot();
+  const previouslyFocused = document.activeElement;
 
-  // Close any existing modal
-  root.innerHTML = "";
+  const backdrop = document.createElement("div");
+  backdrop.className =
+    "fixed inset-0 z-40 flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-sm";
 
-  const overlay = document.createElement("div");
-  overlay.className = "modalOverlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", title);
+  const dialog = document.createElement("div");
+  dialog.className =
+    "relative z-50 w-full max-w-lg rounded-2xl border border-white/12 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_30px_120px_rgba(0,0,0,0.8)] backdrop-blur";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-label", title);
 
-  const modal = document.createElement("div");
-  modal.className = "modal";
+  // Make container focusable for safety
+  dialog.tabIndex = -1;
 
   const header = document.createElement("div");
-  header.className = "modalHeader";
+  header.className = "flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5";
 
-  const headerText = document.createElement("div");
-  const h = document.createElement("h2");
-  h.className = "modalTitle";
-  h.textContent = title;
-
-  const sub = document.createElement("p");
-  sub.className = "modalSub";
-  sub.textContent = subtitle ?? "";
-
-  headerText.appendChild(h);
-  if (subtitle) headerText.appendChild(sub);
+  const titleEl = document.createElement("h2");
+  titleEl.className = "text-base font-semibold tracking-tight text-slate-100";
+  titleEl.textContent = title;
 
   const closeBtn = document.createElement("button");
-  closeBtn.className = "iconBtn";
   closeBtn.type = "button";
+  closeBtn.className =
+    "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-200 transition hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60";
   closeBtn.setAttribute("aria-label", "Close dialog");
-  closeBtn.textContent = "✕";
-
-  header.appendChild(headerText);
-  header.appendChild(closeBtn);
+  closeBtn.innerHTML = `
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
 
   const body = document.createElement("div");
-  body.className = "modalBody";
-  body.appendChild(contentEl);
+  body.className = "px-6 py-5";
+  body.appendChild(content);
 
-  const footer = document.createElement("div");
-  footer.className = "modalFooter";
+  header.appendChild(titleEl);
+  header.appendChild(closeBtn);
 
-  const secondary = document.createElement("button");
-  secondary.className = "btn btnSecondary";
-  secondary.type = "button";
-  secondary.textContent = secondaryText;
+  dialog.appendChild(header);
+  dialog.appendChild(body);
+  backdrop.appendChild(dialog);
+  root.appendChild(backdrop);
 
-  const primary = document.createElement("button");
-  primary.className = "btn btnPrimary";
-  primary.type = "button";
-  primary.textContent = primaryText;
-  primary.disabled = !!primaryDisabled;
+  // Subtle "glow" edge
+  const glow = document.createElement("div");
+  glow.className =
+    "pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-b from-indigo-400/15 via-transparent to-cyan-300/10 opacity-80";
+  dialog.appendChild(glow);
 
-  footer.appendChild(secondary);
-  footer.appendChild(primary);
+  const trap = createFocusTrap(dialog);
+  trap.activate();
 
-  modal.appendChild(header);
-  modal.appendChild(body);
-  modal.appendChild(footer);
+  function close(reason = "close") {
+    trap.deactivate();
 
-  overlay.appendChild(modal);
-  root.appendChild(overlay);
+    // Animate out quickly
+    backdrop.animate(
+      [{ opacity: 1 }, { opacity: 0 }],
+      { duration: 140, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
+    ).onfinish = () => {
+      backdrop.remove();
+      if (typeof onClose === "function") onClose(reason);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") {
+        previouslyFocused.focus();
+      }
+    };
 
-  // Accessibility + close behaviors
-  const cleanupFocus = trapFocus(modal);
-
-  function close(reason = "dismiss") {
-    cleanupFocus?.();
-    root.innerHTML = "";
-    document.removeEventListener("keydown", onEsc);
-    if (reason === "secondary") onSecondary?.();
+    window.removeEventListener("keydown", onEsc, true);
   }
 
   function onEsc(e) {
-    if (e.key === "Escape") close("dismiss");
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close("escape");
+    }
   }
 
-  document.addEventListener("keydown", onEsc);
-
-  overlay.addEventListener("mousedown", (e) => {
-    if (e.target === overlay) close("dismiss");
+  // Close on backdrop click only (not dialog click)
+  backdrop.addEventListener("mousedown", (e) => {
+    if (e.target === backdrop) close("backdrop");
   });
 
-  closeBtn.addEventListener("click", () => close("dismiss"));
-  secondary.addEventListener("click", () => close("secondary"));
-  primary.addEventListener("click", async () => {
-    const shouldClose = await onPrimary?.();
-    if (shouldClose !== false) close("primary");
+  closeBtn.addEventListener("click", () => close("button"));
+
+  window.addEventListener("keydown", onEsc, true);
+
+  // Animate in
+  backdrop.animate(
+    [{ opacity: 0 }, { opacity: 1 }],
+    { duration: 160, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
+  );
+  dialog.animate(
+    [
+      { opacity: 0, transform: "translateY(10px) scale(0.98)" },
+      { opacity: 1, transform: "translateY(0) scale(1)" },
+    ],
+    { duration: 180, easing: "cubic-bezier(.2,.9,.2,1)", fill: "both" }
+  );
+
+  // Focus management
+  queueMicrotask(() => {
+    const initial = initialFocusSelector
+      ? dialog.querySelector(initialFocusSelector)
+      : null;
+
+    if (initial && typeof initial.focus === "function") initial.focus();
+    else trap.focusFirst();
   });
 
-  return {
-    close,
-    setPrimaryDisabled(value) {
-      primary.disabled = !!value;
-    },
-  };
+  return { close, dialog, backdrop };
 }

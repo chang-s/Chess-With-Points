@@ -3,132 +3,77 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Chess With Points - Lobby</title>
-  <meta name="description" content="Create or join a Chess With Points match. Draft armies with a points budget." />
+  <title>Chess With Points</title>
 
-  <link rel="stylesheet" href="./assets/css/base.css" />
-  <link rel="stylesheet" href="./assets/css/components.css" />
-  <link rel="stylesheet" href="./assets/css/page-home.css" />
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <meta name="color-scheme" content="dark" />
 </head>
 
-<body>
-  <div class="noise" aria-hidden="true"></div>
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+  <!-- Background: soft gradient only -->
+  <div aria-hidden="true" class="pointer-events-none fixed inset-0">
+    <div class="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-950"></div>
+    <div class="absolute -top-48 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-indigo-500/10 blur-3xl"></div>
+    <div class="absolute -bottom-48 left-1/3 h-[28rem] w-[28rem] rounded-full bg-cyan-500/8 blur-3xl"></div>
+    <div class="absolute inset-0 bg-gradient-to-tr from-white/[0.04] via-transparent to-white/[0.02]"></div>
+  </div>
 
-  <main class="wrap">
-    <div class="container">
-      <header class="topbar">
-        <div class="brand">
-          <div class="logo" aria-hidden="true"></div>
-          <div>
-            <h1>Chess With Points</h1>
-            <p class="subtitle">Build your army with a points budget, then battle with custom pieces. (Lobby UI prototype)</p>
+  <main class="relative mx-auto flex min-h-screen max-w-5xl items-center justify-center px-6">
+    <section class="w-full max-w-xl text-center">
+      <!-- Emblem -->
+      <div class="mx-auto mb-8 flex w-fit items-center justify-center">
+        <div class="relative">
+          <div class="absolute inset-0 rounded-2xl bg-indigo-400/10 blur-xl"></div>
+          <div class="relative rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.45)]">
+            <div class="flex items-center gap-3">
+              <svg class="h-6 w-6 text-indigo-200" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 2l3 4-3 2-3-2 3-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M7.5 10.5h9l-1.2 9.5H8.7L7.5 10.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M9 10.5V9.2c0-1.3 1.3-2.7 3-2.7s3 1.4 3 2.7v1.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+              <span class="text-sm font-medium tracking-wide text-slate-200">Lobby</span>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="pillrow" aria-label="Project status">
-          <div class="pill"><span class="dot ok" aria-hidden="true"></span>UI prototype</div>
-          <div class="pill"><span class="dot" aria-hidden="true"></span>Multiplayer later</div>
-        </div>
-      </header>
+      <h1 class="text-4xl font-semibold tracking-tight text-slate-100 sm:text-5xl">
+        Chess With Points
+      </h1>
+      <p class="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-300">
+        Draft your army. Spend your budget. Play.
+      </p>
 
-      <section class="grid">
-        <article class="card hero">
-          <div class="inner">
-            <div class="heroTop">
-              <div>
-                <h2>Pick a path</h2>
-                <p>
-                  Create a match to choose a ruleset (points budget + piece catalog). Or join with a code.
-                  These flows are wired for UI now, and we’ll plug in multiplayer later.
-                </p>
-              </div>
+      <div class="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+        <button
+          id="btnCreate"
+          type="button"
+          class="group inline-flex items-center justify-center rounded-xl border border-indigo-400/25 bg-indigo-500/15 px-5 py-3 text-sm font-medium text-slate-100 shadow-[0_0_0_1px_rgba(99,102,241,0.15),0_14px_40px_rgba(0,0,0,0.55)] backdrop-blur transition hover:border-indigo-300/35 hover:bg-indigo-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 focus-visible:ring-offset-0"
+        >
+          <span class="mr-2 inline-block h-2 w-2 rounded-full bg-indigo-300/80 shadow-[0_0_16px_rgba(129,140,248,0.6)]"></span>
+          Create game
+        </button>
 
-              <div class="hint" aria-label="Keyboard hint">
-                Tip: Press <kbd>Esc</kbd> to close dialogs
-              </div>
-            </div>
+        <button
+          id="btnJoin"
+          type="button"
+          class="inline-flex items-center justify-center rounded-xl border border-white/12 bg-white/[0.03] px-5 py-3 text-sm font-medium text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_14px_40px_rgba(0,0,0,0.55)] backdrop-blur transition hover:border-white/18 hover:bg-white/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/60 focus-visible:ring-offset-0"
+        >
+          Join game
+        </button>
+      </div>
 
-            <div class="ctaRow" role="group" aria-label="Lobby actions">
-              <button id="btnCreate" class="btn btnPrimary" type="button">
-                <span class="btnText">
-                  <span class="btnTitle">Create game</span>
-                  <span class="btnDesc">Choose a ruleset, set a points budget, and generate a code.</span>
-                </span>
-                <span class="btnIcon" aria-hidden="true">➕</span>
-              </button>
-
-              <button id="btnJoin" class="btn" type="button">
-                <span class="btnText">
-                  <span class="btnTitle">Join game</span>
-                  <span class="btnDesc">Enter a code to join an existing match.</span>
-                </span>
-                <span class="btnIcon" aria-hidden="true">🔑</span>
-              </button>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="mini">
-              <div class="miniCard">
-                <div class="miniTitle">What you’ll ship next</div>
-                <div class="miniBody">Army builder → draft validation → board play screen</div>
-              </div>
-              <div class="miniCard">
-                <div class="miniTitle">Ruleset ready</div>
-                <div class="miniBody">Rulesets are data-driven so you can add/adjust point systems easily.</div>
-              </div>
-              <div class="miniCard">
-                <div class="miniTitle">Portfolio-friendly</div>
-                <div class="miniBody">Clear UX flows + modular JS. Easy to expand into multiplayer later.</div>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <aside class="card side">
-          <div class="inner">
-            <h3 class="sideTitle">About this prototype</h3>
-            <p class="sideBody">
-              This is the foundation for a “Chess With Points” variant with custom pieces. Today we’re building a clean lobby flow.
-              Later we’ll add drafting and real-time play.
-            </p>
-
-            <div class="sideList">
-              <div class="sideRow">
-                <span class="badge">Phase 1</span>
-                <span class="sideRowText">Lobby + ruleset selection</span>
-              </div>
-              <div class="sideRow">
-                <span class="badge">Phase 2</span>
-                <span class="sideRowText">Army builder (points + roster)</span>
-              </div>
-              <div class="sideRow">
-                <span class="badge">Phase 3</span>
-                <span class="sideRowText">Board + move rules engine</span>
-              </div>
-              <div class="sideRow">
-                <span class="badge">Phase 4</span>
-                <span class="sideRowText">Multiplayer (WebSockets)</span>
-              </div>
-            </div>
-
-            <div class="spacer"></div>
-
-            <a class="link" href="#" id="linkWhatIsRuleset">What is a ruleset?</a>
-          </div>
-        </aside>
-      </section>
-
-      <footer class="footer">
-        <span class="footerMuted">Built for a class assignment + portfolio. ✨</span>
-      </footer>
-    </div>
+      <div class="mt-10 text-xs text-slate-400">
+        Tip: Press <kbd class="rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5">Esc</kbd> to close dialogs.
+      </div>
+    </section>
   </main>
 
-  <!-- Modals mount here -->
-  <div id="modalRoot"></div>
-  <!-- Toast mount here -->
-  <div id="toastRoot" class="toastRoot" aria-live="polite" aria-atomic="true"></div>
+  <!-- App mount points -->
+  <div id="modal-root"></div>
+  <div id="toast-root" class="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4"></div>
 
   <script type="module" src="./assets/js/app.js"></script>
 </body>
