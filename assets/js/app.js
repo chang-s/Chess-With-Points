@@ -81,12 +81,14 @@ function openJoinModal() {
 ------------------------------ */
 
 const POINT_TOTAL_OPTIONS = [40, 80, 120, 160, 400];
+const SCHEMAS_PER_PAGE = 6;
 const STORAGE_KEY = "cwp_point_schemas_v2";
 
 function openCreateOverlay() {
   const state = createState(loadSchemas(), {
     selectedSchemaId: null,
     selectedPieceId: PIECES[0].id,
+    schemaPage: 1,
   });
 
   if (state.schemas.length > 0) state.selectedSchemaId = state.schemas[0].id;
@@ -102,7 +104,7 @@ function openCreateOverlay() {
 
   const left = el(
     "aside",
-    "lg:col-span-3 border-b lg:border-b-0 lg:border-r border-white/10 bg-white/[0.02]"
+    "min-h-0 lg:col-span-3 border-b lg:border-b-0 lg:border-r border-white/10 bg-white/[0.02]"
   );
   const center = el(
     "section",
@@ -188,7 +190,7 @@ function openCreatePage({ title, content, initialFocusSelector, onClose }) {
 ------------------------------ */
 
 function buildLeftColumn(state) {
-  const root = el("div", "h-full flex flex-col");
+  const root = el("div", "h-full min-h-0 flex flex-col");
 
   const top = el("div", "p-4 sm:p-6");
   const title = el("div", "text-xs font-medium uppercase tracking-wide text-slate-400", "Point sets");
@@ -221,11 +223,15 @@ function buildLeftColumn(state) {
   const list = el("div", "space-y-2");
   listWrap.appendChild(list);
 
+  const pagerWrap = el("div", "hidden border-t border-white/10 px-3 sm:px-4 py-3");
+  const pager = el("div", "flex items-center justify-center gap-1.5");
+  pagerWrap.appendChild(pager);
+
   const footer = el("div", "border-t border-white/10 px-4 sm:px-6 py-4");
   const stat = el("div", "text-sm text-slate-200");
   footer.appendChild(stat);
 
-  root.append(top, listWrap, footer);
+  root.append(top, listWrap, pagerWrap, footer);
 
   function render() {
     const schema = state.getSelectedSchema();
@@ -234,6 +240,11 @@ function buildLeftColumn(state) {
     if (schema) pointsSelect.value = String(schema.totalPoints);
 
     list.innerHTML = "";
+
+    const totalPages = Math.max(1, Math.ceil(state.schemas.length / SCHEMAS_PER_PAGE));
+    state.schemaPage = clamp(state.schemaPage ?? 1, 1, totalPages);
+    const start = (state.schemaPage - 1) * SCHEMAS_PER_PAGE;
+    const visibleSchemas = state.schemas.slice(start, start + SCHEMAS_PER_PAGE);
 
     if (state.schemas.length === 0) {
       list.appendChild(
@@ -244,7 +255,7 @@ function buildLeftColumn(state) {
         )
       );
     } else {
-      for (const s of state.schemas) {
+      for (const s of visibleSchemas) {
         const active = s.id === state.selectedSchemaId;
         const remaining = calcRemaining(s);
         const over = remaining < -0.001;
@@ -382,6 +393,26 @@ function buildLeftColumn(state) {
 
         list.appendChild(row);
       }
+    }
+
+    pagerWrap.classList.toggle("hidden", totalPages <= 1);
+    pager.innerHTML = "";
+
+    if (totalPages > 1) {
+      const prevBtn = pageButton("<", state.schemaPage === 1, false);
+      prevBtn.addEventListener("click", () => state.actions.setSchemaPage(state.schemaPage - 1));
+      pager.appendChild(prevBtn);
+
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        const active = pageNum === state.schemaPage;
+        const pageBtn = pageButton(String(pageNum), false, active);
+        pageBtn.addEventListener("click", () => state.actions.setSchemaPage(pageNum));
+        pager.appendChild(pageBtn);
+      }
+
+      const nextBtn = pageButton(">", state.schemaPage === totalPages, false);
+      nextBtn.addEventListener("click", () => state.actions.setSchemaPage(state.schemaPage + 1));
+      pager.appendChild(nextBtn);
     }
 
     if (!schema) {
@@ -695,6 +726,7 @@ function createState(schemas, ui) {
     schemas,
     selectedSchemaId: ui.selectedSchemaId,
     selectedPieceId: ui.selectedPieceId,
+    schemaPage: ui.schemaPage ?? 1,
     overlayClose: null,
 
     onChange(fn) {
@@ -718,6 +750,8 @@ function createState(schemas, ui) {
       },
       selectSchema(id) {
         state.selectedSchemaId = id;
+        const idx = state.schemas.findIndex((s) => s.id === id);
+        if (idx >= 0) state.schemaPage = Math.floor(idx / SCHEMAS_PER_PAGE) + 1;
         state.emit();
       },
       selectPiece(id) {
@@ -727,6 +761,7 @@ function createState(schemas, ui) {
       addSchema(schema) {
         state.schemas.unshift(schema);
         state.selectedSchemaId = schema.id;
+        state.schemaPage = 1;
         state.emit();
       },
       deleteSchema(id) {
@@ -737,11 +772,38 @@ function createState(schemas, ui) {
         if (state.selectedSchemaId === id) {
           state.selectedSchemaId = state.schemas[0]?.id ?? null;
         }
+
+        const totalPages = Math.max(1, Math.ceil(state.schemas.length / SCHEMAS_PER_PAGE));
+        state.schemaPage = clamp(state.schemaPage, 1, totalPages);
+        if (state.selectedSchemaId) {
+          const selectedIdx = state.schemas.findIndex((s) => s.id === state.selectedSchemaId);
+          if (selectedIdx >= 0) state.schemaPage = Math.floor(selectedIdx / SCHEMAS_PER_PAGE) + 1;
+        }
+
+        state.emit();
+      },
+      setSchemaPage(page) {
+        const totalPages = Math.max(1, Math.ceil(state.schemas.length / SCHEMAS_PER_PAGE));
+        state.schemaPage = clamp(page, 1, totalPages);
         state.emit();
       },
     },
   };
   return state;
+}
+
+function pageButton(label, disabled = false, active = false) {
+  const b = button(
+    label,
+    "button",
+    "min-w-8 rounded-lg border-2 px-2 py-1 text-xs font-medium transition focus:outline-none focus-visible:ring-2 " +
+      (active
+        ? "border-sky-200/45 bg-sky-500/20 text-sky-100 focus-visible:ring-sky-200/70"
+        : "border-white/12 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06] focus-visible:ring-sky-200/60")
+  );
+  b.disabled = disabled;
+  if (disabled) b.classList.add("opacity-45", "cursor-not-allowed");
+  return b;
 }
 
 function loadSchemas() {
@@ -804,6 +866,12 @@ function formatPoints(value) {
   const rounded = roundToTwo(value);
   if (Number.isInteger(rounded)) return String(rounded);
   return rounded.toFixed(2).replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+}
+
+function clamp(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
 }
 
 function cryptoId() {
