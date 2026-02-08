@@ -596,15 +596,27 @@ function buildRightColumn(state) {
     const note = el("p", "mt-3 text-sm text-slate-300");
     note.textContent = "When Remaining hits 0, Create army becomes available.";
 
+    row.append(remainingBox, costWrap);
     costCard.append(row, note);
 
     createArmyBtn.disabled = remaining !== 0;
 
     costInput.addEventListener("input", () => {
+      const cursorStart = costInput.selectionStart;
+      const cursorEnd = costInput.selectionEnd;
       const raw = Number(costInput.value);
       const next = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
       schema.costs[piece.id] = next;
       state.actions.touch();
+
+      // Keep typing flow smooth even after full re-render.
+      const nextInput = document.getElementById("costInput");
+      if (nextInput) {
+        nextInput.focus();
+        if (cursorStart != null && cursorEnd != null) {
+          nextInput.setSelectionRange(cursorStart, cursorEnd);
+        }
+      }
     });
 
     body.append(topCard, costCard);
