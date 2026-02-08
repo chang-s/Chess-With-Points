@@ -598,17 +598,20 @@ function buildCenterColumn(state) {
     body.classList.toggle("overflow-auto", hasSchema);
 
     searchInput.disabled = !hasSchema;
-    searchInput.classList.toggle("opacity-50", !hasSchema);
+    searchInput.classList.toggle("opacity-35", !hasSchema);
     searchInput.classList.toggle("cursor-not-allowed", !hasSchema);
+    searchInput.classList.toggle("text-slate-500", !hasSchema);
 
     filterBtn.disabled = !hasSchema;
 
     searchInput.value = state.pieceSearch ?? "";
     filterBtn.className =
-      "inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 text-slate-200 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60 " +
-      (hasActiveFilters
-        ? "border-sky-200/45 bg-sky-500/20"
-        : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]");
+      "inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60 " +
+      (!hasSchema
+        ? "border-white/10 bg-white/[0.015] text-slate-500 opacity-45 cursor-not-allowed"
+        : hasActiveFilters
+        ? "border-sky-200/45 bg-sky-500/20 text-slate-200"
+        : "border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06]");
 
     grid.innerHTML = "";
 
