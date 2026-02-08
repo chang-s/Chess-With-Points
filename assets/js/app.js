@@ -1,11 +1,10 @@
 import { openModal } from "./ui/modal.js";
 import { showToast } from "./ui/toast.js";
 import { PIECES as SPRITE_PIECES, PIECE_SHEET, SPRITE_COLS, SPRITE_ROWS } from "./data/pieces.js";
+import { PIECES_DATA } from "../../data/pieces.data.js";
 
 const btnCreate = document.getElementById("btnCreate");
 const btnJoin = document.getElementById("btnJoin");
-
-const PIECES_DATA_URL = new URL("../../../data/pieces.json", import.meta.url);
 
 let PIECES_DATASET = [];
 let PIECE_BY_ID = new Map();
@@ -14,48 +13,25 @@ const SPRITE_BY_ID = new Map(SPRITE_PIECES.map((p) => [p.id, p.sprite]));
 
 initApp();
 
-async function initApp() {
-  PIECES_DATASET = await loadPiecesDataset();
+function initApp() {
+  PIECES_DATASET = normalizePiecesDataset(PIECES_DATA);
   PIECE_BY_ID = new Map(PIECES_DATASET.map((p) => [p.id, p]));
 
   btnCreate?.addEventListener("click", () => openCreateOverlay());
   btnJoin?.addEventListener("click", () => openJoinModal());
 }
 
-async function loadPiecesDataset() {
+function normalizePiecesDataset(raw) {
   try {
-    const raw = await loadPiecesDatasetRaw();
     if (!Array.isArray(raw)) throw new Error("Invalid pieces dataset format");
 
     return raw
       .map(normalizePiece)
       .filter((piece) => piece && piece.id);
   } catch (error) {
-    console.error("Unable to load /data/pieces.json", error);
+    console.error("Unable to read pieces dataset module", error);
     showToast("Failed to load pieces data.", { variant: "error" });
     return [];
-  }
-}
-
-async function loadPiecesDatasetRaw() {
-  // file:// blocks fetch() in many browsers, so use the JSON module fallback.
-  if (window.location.protocol === "file:") {
-    const jsonModule = await importPiecesJsonModule();
-    return jsonModule?.default ?? jsonModule;
-  }
-
-  const response = await fetch(PIECES_DATA_URL);
-  if (!response.ok) throw new Error(`Failed to load pieces (${response.status})`);
-  return response.json();
-}
-
-async function importPiecesJsonModule() {
-  const path = "../../../data/pieces.json";
-
-  try {
-    return await import(path, { with: { type: "json" } });
-  } catch (firstError) {
-    return await import(path, { assert: { type: "json" } });
   }
 }
 
