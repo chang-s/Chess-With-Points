@@ -643,13 +643,17 @@ function buildCenterColumn(state) {
         "group relative flex flex-col items-center rounded-2xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 " +
         (needsCost
           ? (isSelected
-              ? "border-rose-300/55 bg-rose-400/28 focus-visible:ring-rose-200/70"
-              : "border-rose-300/45 bg-rose-400/24 hover:bg-rose-400/30 focus-visible:ring-rose-200/60")
+              ? "border-rose-200/70 bg-rose-500/45 text-rose-50 focus-visible:ring-rose-200/70"
+              : "border-rose-200/60 bg-rose-500/35 text-rose-50 hover:bg-rose-500/42 focus-visible:ring-rose-200/60")
           : (isSelected
               ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
               : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60"));
 
       const thumb = el("div", "mx-auto h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-full border-2 border-white/10 bg-white/[0.02]");
+      if (needsCost) {
+        thumb.classList.remove("border-white/10", "bg-white/[0.02]");
+        thumb.classList.add("border-rose-100/50", "bg-rose-500/20");
+      }
       thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
       thumb.style.backgroundRepeat = "no-repeat";
       thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
@@ -666,7 +670,7 @@ function buildCenterColumn(state) {
         "div",
         "inline-flex items-center rounded-lg border-2 px-2 py-1 text-xs " +
           (needsCost
-            ? "border-rose-300/30 bg-rose-500/10 text-rose-100"
+            ? "border-rose-100/60 bg-rose-500/35 text-rose-50"
             : "border-white/10 bg-white/[0.03] text-slate-200")
       );
       costBadge.textContent = `Cost: ${formatPoints(normalizedCost)}`;
@@ -1247,7 +1251,10 @@ function escapeHtml(str) {
 
 function setTooltip(elm, text) {
   elm.classList.add("cwp-tooltip");
-  elm.dataset.tip = text;
+  const tip = String(text ?? "");
+  elm.dataset.tip = tip;
+  elm.setAttribute("data-tip", tip);
+  elm.setAttribute("title", tip);
 }
 
 /* -----------------------------
