@@ -446,34 +446,19 @@ function buildCenterColumn(state) {
               ? "border-sky-200/35 bg-sky-500/10 focus-visible:ring-sky-200/70"
               : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04] focus-visible:ring-sky-200/60"));
 
-      const top = el("div", "flex items-start gap-3");
-
-      const thumb = el("div", "h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-xl border-2 border-white/10 bg-white/[0.02]");
+      const thumb = el("div", "h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-2xl border-2 border-white/10 bg-white/[0.02]");
       thumb.style.backgroundImage = `url("${PIECE_SHEET}")`;
       thumb.style.backgroundRepeat = "no-repeat";
       thumb.style.backgroundSize = `${SPRITE_COLS * 100}% ${SPRITE_ROWS * 100}%`;
       thumb.style.backgroundPosition = spritePos(p.sprite.c, p.sprite.r);
 
-      const meta = el("div", "min-w-0 flex-1");
       const typeIcon = p.type === "Noble" ? "👑" : "🧑";
       const typeTip = p.type;
 
-      meta.innerHTML = `
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0">
-            <div class="truncate text-sm font-medium text-slate-100">${escapeHtml(p.name)}</div>
-          </div>
-          <span
-            class="cwp-tooltip"
-            data-tip="${escapeHtml(typeTip)}"
-            aria-label="${escapeHtml(typeTip)}"
-          >${typeIcon}</span>
-        </div>
-      `;
+      const name = el("div", "mt-3 text-center text-sm font-medium leading-snug text-slate-100");
+      name.textContent = p.name;
 
-      top.append(thumb, meta);
-
-      const bottom = el("div", "mt-3 flex items-center justify-end");
+      const bottom = el("div", "mt-3 flex w-full items-center justify-between gap-2");
       const costBadge = el(
         "div",
         "inline-flex items-center rounded-lg border-2 px-2 py-1 text-xs " +
@@ -482,9 +467,15 @@ function buildCenterColumn(state) {
             : "border-white/10 bg-white/[0.03] text-slate-200")
       );
       costBadge.textContent = `Cost: ${formatPoints(normalizedCost)}`;
-      bottom.appendChild(costBadge);
+      const typeBadge = el(
+        "div",
+        "inline-flex items-center rounded-lg border-2 border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-200"
+      );
+      typeBadge.innerHTML = `<span class="cwp-tooltip" data-tip="${escapeHtml(typeTip)}" aria-label="${escapeHtml(typeTip)}">${typeIcon}</span>`;
 
-      card.append(top, bottom);
+      bottom.append(costBadge, typeBadge);
+
+      card.append(thumb, name, bottom);
 
       card.addEventListener("click", () => state.actions.selectPiece(p.id));
       grid.appendChild(card);
